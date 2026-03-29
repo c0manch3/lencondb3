@@ -89,9 +89,9 @@ const ProfilePage: FC = () => {
   const fullName = `${user.firstName} ${user.lastName}`.trim();
 
   return (
-    <div className="max-w-2xl mx-auto px-4 py-10">
+    <div className="max-w-2xl mx-auto w-full">
       {/* Page heading */}
-      <h1 className="text-2xl font-bold text-brown-900 mb-8">{t('profile.title')}</h1>
+      <h1 className="text-2xl font-bold text-brown-900 mb-6">{t('profile.title')}</h1>
 
       {/* User info card */}
       <div className="bg-cream-100 border border-brown-200 rounded-xl p-6 mb-6">

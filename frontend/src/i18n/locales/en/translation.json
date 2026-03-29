@@ -112,7 +112,10 @@
     "expenses": "Expenses",
     "profile": "Profile",
     "menu": "Menu",
-    "home": "Home"
+    "home": "Home",
+    "more": "More",
+    "workloadShort": "Workload",
+    "analyticsShort": "Analytics"
   },
   "projects": {
     "title": "Projects",

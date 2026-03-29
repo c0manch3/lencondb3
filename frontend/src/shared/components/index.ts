@@ -1,5 +1,6 @@
 export { default as AsciiBackground } from './AsciiBackground';
 export { default as Badge } from './Badge';
+export { default as BottomNav } from './BottomNav';
 export { default as Button } from './Button';
 export { default as ConfirmDialog } from './ConfirmDialog';
 export { default as DatePicker } from './DatePicker';
@@ -9,7 +10,7 @@ export { default as Layout } from './Layout';
 export { default as Modal } from './Modal';
 export { default as Pagination } from './Pagination';
 export { default as Select } from './Select';
+export { default as Sidebar } from './Sidebar';
 export { default as Skeleton } from './Skeleton';
 export { default as Spinner } from './Spinner';
 export { default as Table } from './Table';
-export { default as TopNav } from './TopNav';

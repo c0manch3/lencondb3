@@ -239,7 +239,7 @@ export default function WorkloadPage() {
 
   // ─── Render ─────────────────────────────────────────────────────
   return (
-    <div className="flex flex-col gap-4">
+    <div className="flex flex-col gap-6">
       <h1 className="text-2xl font-bold text-brown-900">{t('workload.title')}</h1>
 
       <WorkloadToolbar

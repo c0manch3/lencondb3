@@ -74,11 +74,11 @@ export default function App() {
 
     async function checkAuth() {
       try {
-        const { data } = await api.post<{ user: User }>('/auth/check');
+        const { data } = await api.post<User>('/auth/check');
         if (!cancelled) {
           dispatch({
             type: 'SET_CREDENTIALS',
-            payload: { user: data.user, accessToken: accessToken! },
+            payload: { user: data, accessToken: accessToken! },
           });
         }
       } catch {

@@ -112,7 +112,10 @@
     "expenses": "Расходы",
     "profile": "Профиль",
     "menu": "Меню",
-    "home": "Главная"
+    "home": "Главная",
+    "more": "Ещё",
+    "workloadShort": "Загруж.",
+    "analyticsShort": "Аналит."
   },
   "projects": {
     "title": "Проекты",
