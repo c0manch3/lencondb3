@@ -1,0 +1,348 @@
+// Prisma schema for LenconDB - PostgreSQL (local Docker)
+// Maps to existing database tables
+
+generator client {
+  provider        = "prisma-client-js"
+  previewFeatures = ["postgresqlExtensions"]
+}
+
+datasource db {
+  provider   = "postgresql"
+  url        = env("DATABASE_URL")
+  extensions = [pgcrypto]
+}
+
+// Enums matching database
+enum UserRole {
+  Admin
+  Manager
+  Employee
+  Trial
+}
+
+enum CompanyType {
+  Customer
+  Contractor
+}
+
+enum ProjectType {
+  main
+  additional
+}
+
+enum ProjectStatus {
+  Active
+  Completed
+}
+
+enum PaymentType {
+  Advance
+  MainPayment
+  FinalPayment
+  Other
+}
+
+enum ChatRole {
+  User
+  Assistant
+}
+
+enum ChatRequestType {
+  Report
+  Proposal
+}
+
+enum TokenType {
+  Invite
+  PasswordReset
+}
+
+enum InviteStatus {
+  Active
+  Pending
+}
+
+enum ExpenseCategory {
+  Salary
+  IncomeTax
+  InsuranceContrib
+  SocialInsurance
+  SimplifiedTax
+  VAT
+  Penalty
+  IndividualTax
+  Rent
+  Services
+  Other
+}
+
+// Models - mapped to existing snake_case table names
+model User {
+  id           String    @id @default(uuid())
+  firstName    String
+  lastName     String
+  email        String    @unique
+  phone        String    @unique
+  passwordHash String
+  dateBirth    DateTime
+  role         UserRole
+  telegramId   BigInt?
+  salary       Float?
+  createdAt    DateTime     @default(now())
+  updatedAt    DateTime     @updatedAt
+  inviteStatus InviteStatus @default(Active)
+
+  // Relations
+  managedProjects     Project[]           @relation("ProjectManager")
+  projectUsers        ProjectUser[]
+  workloadPlans       WorkloadPlan[]      @relation("WorkloadPlanUser")
+  managedWorkloadPlans WorkloadPlan[]     @relation("WorkloadPlanManager")
+  workloadActuals     WorkloadActual[]
+  refreshTokens       RefreshToken[]
+  employeeProposals   EmployeeProposal[]
+  chatLogs            LenconnectChatLog[]
+  inviteTokens        InviteToken[]
+  expenses            Expense[]
+
+  @@map("users")
+}
+
+model Company {
+  id          String      @id @default(uuid())
+  name        String
+  type        CompanyType @default(Customer)
+  address     String
+  phone       String
+  email       String
+  account     String?
+  bank        String?
+  bik         String?
+  corrAccount String?
+  inn         String?
+  kpp         String?
+  ogrn        String?
+  postalCode  String?
+  createdAt   DateTime    @default(now())
+  updatedAt   DateTime    @updatedAt
+
+  // Relations
+  projects Project[] @relation("CustomerCompany")
+
+  @@map("companies")
+}
+
+model Project {
+  id                 String        @id @default(uuid())
+  name               String
+  contractDate       DateTime
+  expirationDate     DateTime
+  type               ProjectType
+  status             ProjectStatus @default(Active)
+  customerId         String?
+  managerId          String?
+  mainProjectId      String?
+  cost               Float?
+  createdAt          DateTime      @default(now())
+  updatedAt          DateTime      @updatedAt
+
+  // Relations
+  customer              Company?                      @relation("CustomerCompany", fields: [customerId], references: [id])
+  manager               User?                         @relation("ProjectManager", fields: [managerId], references: [id])
+  mainProject           Project?                      @relation("AdditionalProjects", fields: [mainProjectId], references: [id])
+  additionalProjects    Project[]                     @relation("AdditionalProjects")
+  projectUsers          ProjectUser[]
+  workloadPlans         WorkloadPlan[]
+  workloadDistributions ProjectWorkloadDistribution[]
+  paymentSchedules      PaymentSchedule[]
+
+  @@index([managerId])
+  @@index([customerId])
+  @@index([status])
+  @@map("projects")
+}
+
+model WorkloadPlan {
+  id        String   @id @default(uuid())
+  userId    String
+  projectId String
+  managerId String
+  date      DateTime
+  hours     Float?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Relations
+  user    User    @relation("WorkloadPlanUser", fields: [userId], references: [id])
+  project Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  manager User    @relation("WorkloadPlanManager", fields: [managerId], references: [id])
+
+  @@unique([userId, date, projectId])
+  @@index([projectId])
+  @@index([managerId])
+  @@index([date])
+  @@map("workload_plan")
+}
+
+model WorkloadActual {
+  id          String   @id @default(dbgenerated("gen_random_uuid()"))
+  userId      String
+  date        DateTime
+  hoursWorked Float
+  userText    String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  // Relations
+  user          User                          @relation(fields: [userId], references: [id])
+  distributions ProjectWorkloadDistribution[]
+
+  @@unique([userId, date])
+  @@index([userId])
+  @@index([date])
+  @@map("workload_actual")
+}
+
+model ProjectWorkloadDistribution {
+  id               String @id @default(dbgenerated("gen_random_uuid()"))
+  workloadActualId String
+  projectId        String
+  hours            Float
+  description      String
+
+  // Relations
+  workloadActual WorkloadActual @relation(fields: [workloadActualId], references: [id], onDelete: Cascade)
+  project        Project        @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  @@index([workloadActualId])
+  @@index([projectId])
+  @@map("project_workload_distributions")
+}
+
+model PaymentSchedule {
+  id           String      @id @default(uuid())
+  projectId    String
+  type         PaymentType
+  name         String
+  amount       Float
+  percentage   Float?
+  expectedDate DateTime
+  actualDate   DateTime?
+  isPaid       Boolean     @default(false)
+  description  String?
+  createdAt    DateTime    @default(now())
+  updatedAt    DateTime    @updatedAt
+
+  // Relations
+  project Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  @@index([projectId])
+  @@index([isPaid, expectedDate])
+  @@map("payment_schedules")
+}
+
+model RefreshToken {
+  id        String   @id @default(uuid())
+  userId    String
+  expiresIn DateTime
+  createdAt DateTime
+
+  // Relations
+  user User @relation(fields: [userId], references: [id])
+
+  @@index([userId])
+  @@map("refresh_tokens")
+}
+
+model ProjectUser {
+  id        String @id @default(uuid())
+  userId    String
+  projectId String
+
+  // Relations
+  user    User    @relation(fields: [userId], references: [id])
+  project Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, projectId])
+  @@map("project_users")
+}
+
+model EmployeeProposal {
+  id        String   @id @default(dbgenerated("gen_random_uuid()"))
+  userId    String
+  proposal  String
+  createdAt DateTime @default(now())
+
+  // Relations
+  user User @relation(fields: [userId], references: [id])
+
+  @@index([userId])
+  @@map("employee_proposals")
+}
+
+model LenconnectChatLog {
+  id          String          @id @default(dbgenerated("gen_random_uuid()"))
+  userId      String          @map("user_id")
+  role        ChatRole
+  content     String?
+  requestType ChatRequestType @map("request_type")
+  createdAt   DateTime        @default(now()) @map("created_at")
+
+  // Relations
+  user User @relation(fields: [userId], references: [id])
+
+  @@index([userId])
+  @@map("lenconnect_chat_logs")
+}
+
+model InviteToken {
+  id        String    @id @default(uuid())
+  userId    String
+  tokenHash String    @unique
+  type      TokenType
+  expiresAt DateTime
+  usedAt    DateTime?
+  createdAt DateTime  @default(now())
+
+  // Relations
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([tokenHash])
+  @@index([userId, type])
+  @@map("invite_tokens")
+}
+
+model SmtpConfig {
+  id                String   @id @default(uuid())
+  host              String
+  port              Int
+  secure            Boolean  @default(true)
+  username          String
+  passwordEncrypted String   @db.Text
+  fromEmail         String
+  fromName          String   @default("LenconDB")
+  isActive          Boolean  @default(true)
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  @@map("smtp_configs")
+}
+
+model Expense {
+  id          String          @id @default(uuid())
+  date        DateTime
+  amount      Float
+  vatAmount   Float?
+  category    ExpenseCategory
+  description String?
+  deletedAt   DateTime?
+  createdById String
+  createdAt   DateTime        @default(now())
+  updatedAt   DateTime        @updatedAt
+
+  createdBy   User            @relation(fields: [createdById], references: [id])
+
+  @@index([date])
+  @@index([category])
+  @@index([deletedAt])
+  @@map("expenses")
+}

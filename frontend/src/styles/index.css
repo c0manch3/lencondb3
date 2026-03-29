@@ -1,0 +1,165 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* Design tokens */
+:root {
+  --bg-cream: #f9f0d9;
+  --text-brown: #22150d;
+  --accent-yellow: #FFFF8B;
+  --border-brown: rgba(34, 21, 13, 0.15);
+  --border-brown-strong: rgba(34, 21, 13, 0.3);
+  --backdrop: rgba(32, 21, 14, 0.50);
+}
+
+/* Base styles */
+@layer base {
+  html {
+    @apply antialiased;
+  }
+
+  html.lenis {
+    height: auto;
+  }
+
+  .lenis.lenis-smooth {
+    scroll-behavior: auto;
+  }
+
+  body {
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    background-color: #f9f0d9;
+    color: #22150d;
+  }
+
+  /* Custom selection */
+  ::selection {
+    background: #22150d;
+    color: #f9f0d9;
+  }
+
+  ::-moz-selection {
+    background: #22150d;
+    color: #f9f0d9;
+  }
+
+  /* Custom scrollbar */
+  ::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+  }
+
+  ::-webkit-scrollbar-track {
+    background: transparent;
+  }
+
+  ::-webkit-scrollbar-thumb {
+    background: rgba(34, 21, 13, 0.2);
+    border-radius: 4px;
+  }
+
+  ::-webkit-scrollbar-thumb:hover {
+    background: rgba(34, 21, 13, 0.4);
+  }
+
+  /* Form autofill override for cream background */
+  input:-webkit-autofill,
+  input:-webkit-autofill:focus {
+    -webkit-box-shadow: 0 0 0 50px #f9f0d9 inset !important;
+    -webkit-text-fill-color: #22150d !important;
+  }
+
+  /* Ensure minimum touch target size */
+  button,
+  a,
+  input[type="checkbox"],
+  input[type="radio"],
+  select {
+    @apply min-h-touch min-w-touch;
+  }
+}
+
+/* Component styles */
+@layer components {
+  .btn {
+    @apply inline-flex items-center justify-center px-4 py-2 rounded font-medium
+           transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-offset-2
+           disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer;
+  }
+
+  .btn-primary {
+    @apply btn bg-brown-900 text-cream-500 hover:bg-brown-800 focus:ring-brown-700;
+  }
+
+  .btn-secondary {
+    @apply btn bg-cream-200 text-brown-900 hover:bg-cream-300 focus:ring-brown-400;
+  }
+
+  .btn-danger {
+    @apply btn bg-red-600 text-white hover:bg-red-700 focus:ring-red-500;
+  }
+
+  .btn-ghost {
+    @apply btn bg-transparent text-brown-700 hover:bg-cream-200 focus:ring-brown-400;
+  }
+
+  .input {
+    @apply block w-full px-3 py-2 rounded shadow-sm
+           placeholder-brown-400 focus:outline-none focus:ring-2 focus:ring-brown-600
+           focus:border-brown-600 transition-colors;
+    border: 1px solid var(--border-brown);
+    background-color: var(--bg-cream);
+    color: var(--text-brown);
+  }
+
+  .input:focus {
+    border-color: var(--border-brown-strong);
+  }
+
+  .input-error {
+    @apply border-red-500 focus:ring-red-500 focus:border-red-500;
+  }
+
+  .label {
+    @apply block text-sm font-medium text-brown-800 mb-1;
+  }
+
+  .error-message {
+    @apply text-sm text-red-600 mt-1;
+  }
+
+  .card {
+    @apply bg-cream-50 rounded-lg overflow-hidden;
+    border: 1px solid var(--border-brown);
+  }
+
+  .page-title {
+    @apply text-2xl font-bold text-brown-900;
+  }
+
+  .section-title {
+    @apply text-lg font-semibold text-brown-800;
+  }
+}
+
+/* Utility classes */
+@layer utilities {
+  .scrollbar-hide {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+  }
+
+  .scrollbar-hide::-webkit-scrollbar {
+    display: none;
+  }
+
+  /* Safe area for mobile devices */
+  .safe-bottom {
+    padding-bottom: env(safe-area-inset-bottom);
+  }
+
+  .safe-top {
+    padding-top: env(safe-area-inset-top);
+  }
+}

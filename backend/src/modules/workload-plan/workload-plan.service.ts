@@ -1,0 +1,358 @@
+import { Injectable, NotFoundException, ConflictException, BadRequestException, ForbiddenException } from '@nestjs/common';
+import { PrismaService } from '../prisma/prisma.service';
+import { PaginatedResponse } from '../../common/dto/paginated-response';
+
+@Injectable()
+export class WorkloadPlanService {
+  constructor(private prisma: PrismaService) {}
+
+  async findAll(filters?: {
+    userId?: string;
+    projectId?: string;
+    startDate?: Date;
+    endDate?: Date;
+    page?: number;
+    limit?: number;
+  }): Promise<PaginatedResponse<any>> {
+    const page = filters?.page ?? 1;
+    const limit = filters?.limit ?? 25;
+    const where: any = {};
+
+    if (filters?.userId) where.userId = filters.userId;
+    if (filters?.projectId) where.projectId = filters.projectId;
+
+    if (filters?.startDate || filters?.endDate) {
+      where.date = {};
+      if (filters?.startDate) where.date.gte = new Date(filters.startDate);
+      if (filters?.endDate) where.date.lte = new Date(filters.endDate);
+    }
+
+    const [data, total] = await Promise.all([
+      this.prisma.workloadPlan.findMany({
+        where,
+        include: {
+          user: {
+            select: { id: true, firstName: true, lastName: true },
+          },
+          project: {
+            select: { id: true, name: true },
+          },
+          manager: {
+            select: { id: true, firstName: true, lastName: true },
+          },
+        },
+        orderBy: { date: 'asc' },
+        skip: (page - 1) * limit,
+        take: limit,
+      }),
+      this.prisma.workloadPlan.count({ where }),
+    ]);
+
+    return {
+      data,
+      total,
+      page,
+      limit,
+      totalPages: Math.ceil(total / limit),
+    };
+  }
+
+  async findOne(id: string) {
+    const plan = await this.prisma.workloadPlan.findUnique({
+      where: { id },
+      include: {
+        user: {
+          select: { id: true, firstName: true, lastName: true },
+        },
+        project: {
+          select: { id: true, name: true },
+        },
+        manager: {
+          select: { id: true, firstName: true, lastName: true },
+        },
+      },
+    });
+
+    if (!plan) {
+      throw new NotFoundException('Workload plan not found');
+    }
+
+    return plan;
+  }
+
+  async create(data: {
+    userId: string;
+    projectId: string;
+    managerId: string;
+    date: Date;
+    hours?: number | null;
+  }) {
+    // Validate that date is not in the past (can be today or future)
+    const planDate = new Date(data.date);
+    planDate.setHours(0, 0, 0, 0);
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+
+    if (planDate < today) {
+      throw new BadRequestException('Cannot create workload plan for past dates');
+    }
+
+    // Check if plan already exists for this user on this date for this project
+    const existing = await this.prisma.workloadPlan.findUnique({
+      where: {
+        userId_date_projectId: {
+          userId: data.userId,
+          date: new Date(data.date),
+          projectId: data.projectId,
+        },
+      },
+    });
+
+    if (existing) {
+      throw new ConflictException('A workload plan already exists for this user on this date for this project');
+    }
+
+    // Check aggregate hours for the day don't exceed 24
+    if (data.hours != null) {
+      const existingPlans = await this.prisma.workloadPlan.findMany({
+        where: { userId: data.userId, date: new Date(data.date) },
+        select: { hours: true },
+      });
+      const totalExisting = existingPlans.reduce((sum, p) => sum + (p.hours || 0), 0);
+      if (totalExisting + data.hours > 24) {
+        throw new BadRequestException(
+          `Total planned hours for this day would exceed 24 (existing: ${totalExisting}h, adding: ${data.hours}h)`,
+        );
+      }
+    }
+
+    return this.prisma.workloadPlan.create({
+      data: {
+        userId: data.userId,
+        projectId: data.projectId,
+        managerId: data.managerId,
+        date: new Date(data.date),
+        hours: data.hours,
+      },
+      include: {
+        user: {
+          select: { id: true, firstName: true, lastName: true },
+        },
+        project: {
+          select: { id: true, name: true },
+        },
+        manager: {
+          select: { id: true, firstName: true, lastName: true },
+        },
+      },
+    });
+  }
+
+  async update(
+    id: string,
+    data: {
+      projectId?: string;
+      date?: Date;
+      hours?: number | null;
+    },
+    managerId?: string,
+  ) {
+    const plan = await this.prisma.workloadPlan.findUnique({
+      where: { id },
+      include: {
+        manager: {
+          select: { id: true, role: true },
+        },
+      },
+    });
+
+    if (!plan) {
+      throw new NotFoundException('Workload plan not found');
+    }
+
+    // Validate that the original plan date is not in the past (can be today or future)
+    const originalDate = new Date(plan.date);
+    originalDate.setHours(0, 0, 0, 0);
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+
+    if (originalDate < today) {
+      throw new BadRequestException('Cannot update workload plan for past dates');
+    }
+
+    // Feature #336: Check authorization - only the creator (manager/employee) or Admin can update
+    if (managerId && plan.managerId !== managerId) {
+      // Need to fetch the current user's role to check if they are Admin
+      const currentUser = await this.prisma.user.findUnique({
+        where: { id: managerId },
+        select: { role: true },
+      });
+
+      if (!currentUser || currentUser.role !== 'Admin') {
+        throw new ForbiddenException('Only the creator of this plan or an Admin can update it');
+      }
+    }
+
+    // If date is being changed, validate new date is not in the past
+    if (data.date) {
+      const newDate = new Date(data.date);
+      newDate.setHours(0, 0, 0, 0);
+
+      if (newDate < today) {
+        throw new BadRequestException('Cannot change workload plan to a past date');
+      }
+
+      // Check for conflicts with the new date + project combination
+      const conflictProjectId = data.projectId || plan.projectId;
+      const existing = await this.prisma.workloadPlan.findFirst({
+        where: {
+          userId: plan.userId,
+          date: new Date(data.date),
+          projectId: conflictProjectId,
+          id: { not: id },
+        },
+      });
+
+      if (existing) {
+        throw new ConflictException('A workload plan already exists for this user on this date for this project');
+      }
+    }
+
+    // Check aggregate hours for the day don't exceed 24 (excluding current plan)
+    if (data.hours != null) {
+      const targetDate = data.date ? new Date(data.date) : plan.date;
+      const existingPlans = await this.prisma.workloadPlan.findMany({
+        where: {
+          userId: plan.userId,
+          date: targetDate,
+          id: { not: id },
+        },
+        select: { hours: true },
+      });
+      const totalOther = existingPlans.reduce((sum, p) => sum + (p.hours || 0), 0);
+      if (totalOther + data.hours > 24) {
+        throw new BadRequestException(
+          `Total planned hours for this day would exceed 24 (other plans: ${totalOther}h, this plan: ${data.hours}h)`,
+        );
+      }
+    }
+
+    return this.prisma.workloadPlan.update({
+      where: { id },
+      data: {
+        projectId: data.projectId,
+        date: data.date ? new Date(data.date) : undefined,
+        hours: data.hours,
+      },
+      include: {
+        user: {
+          select: { id: true, firstName: true, lastName: true },
+        },
+        project: {
+          select: { id: true, name: true },
+        },
+        manager: {
+          select: { id: true, firstName: true, lastName: true },
+        },
+      },
+    });
+  }
+
+  async delete(id: string, managerId?: string) {
+    const plan = await this.prisma.workloadPlan.findUnique({
+      where: { id },
+      include: {
+        manager: {
+          select: { id: true, role: true },
+        },
+      },
+    });
+
+    if (!plan) {
+      throw new NotFoundException('Workload plan not found');
+    }
+
+    // Validate that the plan date is not in the past (can be today or future)
+    const planDate = new Date(plan.date);
+    planDate.setHours(0, 0, 0, 0);
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+
+    if (planDate < today) {
+      throw new BadRequestException('Cannot delete workload plan for past dates');
+    }
+
+    // Feature #336: Check authorization - only the creator (manager/employee) or Admin can delete
+    if (managerId && plan.managerId !== managerId) {
+      // Need to fetch the current user's role to check if they are Admin
+      const currentUser = await this.prisma.user.findUnique({
+        where: { id: managerId },
+        select: { role: true },
+      });
+
+      if (!currentUser || currentUser.role !== 'Admin') {
+        throw new ForbiddenException('Only the creator of this plan or an Admin can delete it');
+      }
+    }
+
+    await this.prisma.workloadPlan.delete({
+      where: { id },
+    });
+
+    return { message: 'Workload plan deleted successfully' };
+  }
+
+  // Get calendar view for a date range
+  async getCalendarView(startDate: Date, endDate: Date, userId?: string, projectId?: string) {
+    const where: any = {
+      date: {
+        gte: new Date(startDate),
+        lte: new Date(endDate),
+      },
+    };
+
+    if (userId) where.userId = userId;
+    if (projectId) where.projectId = projectId;
+
+    const plans = await this.prisma.workloadPlan.findMany({
+      where,
+      include: {
+        user: {
+          select: { id: true, firstName: true, lastName: true },
+        },
+        project: {
+          select: { id: true, name: true },
+        },
+        // Feature #325: Include manager data to support canModifyPlan check on frontend
+        manager: {
+          select: { id: true, firstName: true, lastName: true },
+        },
+      },
+      orderBy: [{ date: 'asc' }, { user: { lastName: 'asc' } }],
+    });
+
+    // Group by date
+    const calendarData: Record<string, any[]> = {};
+
+    plans.forEach((plan) => {
+      // Use local date methods to avoid timezone shifts
+      const year = plan.date.getFullYear();
+      const month = String(plan.date.getMonth() + 1).padStart(2, '0');
+      const day = String(plan.date.getDate()).padStart(2, '0');
+      const dateKey = `${year}-${month}-${day}`;
+      if (!calendarData[dateKey]) {
+        calendarData[dateKey] = [];
+      }
+      calendarData[dateKey].push({
+        id: plan.id,
+        user: plan.user,
+        project: plan.project,
+        // Feature #325: Include manager for canModifyPlan check on frontend
+        manager: plan.manager,
+        hours: plan.hours,
+      });
+    });
+
+    return calendarData;
+  }
+}
