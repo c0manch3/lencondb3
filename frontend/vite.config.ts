@@ -15,7 +15,8 @@ export default defineConfig({
       output: {
         manualChunks: {
           'vendor-react': ['react', 'react-dom', 'react-router-dom'],
-          'vendor-recharts': ['recharts'],
+          'vendor-charts': ['chart.js', 'react-chartjs-2'],
+          'vendor-tanstack': ['@tanstack/react-query', '@tanstack/react-table'],
           'vendor-i18n': ['i18next', 'react-i18next', 'i18next-browser-languagedetector'],
           'vendor-gsap': ['gsap'],
           'vendor-forms': ['react-hook-form', 'zod', '@hookform/resolvers'],

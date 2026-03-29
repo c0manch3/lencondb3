@@ -105,7 +105,7 @@
   }
 
   .input {
-    @apply block w-full px-3 py-2 rounded shadow-sm
+    @apply block w-full px-3 py-2 rounded
            placeholder-brown-400 focus:outline-none focus:ring-2 focus:ring-brown-600
            focus:border-brown-600 transition-colors;
     border: 1px solid var(--border-brown);
@@ -130,7 +130,7 @@
   }
 
   .card {
-    @apply bg-cream-50 rounded-lg overflow-hidden;
+    @apply bg-cream-50 rounded-xl overflow-hidden;
     border: 1px solid var(--border-brown);
   }
 
