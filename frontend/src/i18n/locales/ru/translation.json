@@ -225,7 +225,7 @@
     "employeeUpdated": "Сотрудник обновлён",
     "employeeDeleted": "Сотрудник удалён",
     "confirmDelete": "Вы уверены, что хотите удалить сотрудника",
-    "confirmDeleteMessage": "Вы уверены, что хотите удалить сотрудника <bold>{{name}}</bold>?",
+    "confirmDeleteMessage": "Вы уверены, что хотите удалить сотрудника\n«{{name}}»?",
     "resendInvite": "Отправить повторно",
     "copyInviteLink": "Скопировать ссылку",
     "resetPassword": "Сбросить пароль",

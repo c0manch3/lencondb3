@@ -48,7 +48,7 @@ const ConfirmDialog: FC<ConfirmDialogProps> = ({
         </>
       }
     >
-      <p className="text-sm text-brown-600">{message}</p>
+      <p className="text-sm text-brown-600 whitespace-pre-line">{message}</p>
     </Modal>
   );
 };

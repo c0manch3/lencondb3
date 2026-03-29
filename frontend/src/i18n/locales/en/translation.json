@@ -214,7 +214,7 @@
     "employeeUpdated": "Employee updated",
     "employeeDeleted": "Employee deleted",
     "confirmDelete": "Are you sure you want to delete the employee",
-    "confirmDeleteMessage": "Are you sure you want to delete employee <bold>{{name}}</bold>?",
+    "confirmDeleteMessage": "Are you sure you want to delete employee\n«{{name}}»?",
     "resendInvite": "Resend Invite",
     "copyInviteLink": "Copy Invite Link",
     "resetPassword": "Reset Password",
