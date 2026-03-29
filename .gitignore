@@ -5,3 +5,5 @@ frontend/dist/
 .env.*
 !.env.example
 *.dump
+qa-screenshots/
+.playwright-mcp/
