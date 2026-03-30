@@ -78,8 +78,8 @@ export class PaymentScheduleController {
   @UseGuards(ManagerGuard)
   async markAsPaid(
     @Param('id') id: string,
-    @Body() dto: { actualDate?: Date },
+    @Body() dto?: { actualDate?: Date },
   ) {
-    return this.paymentScheduleService.markAsPaid(id, dto.actualDate);
+    return this.paymentScheduleService.markAsPaid(id, dto?.actualDate);
   }
 }
