@@ -54,7 +54,7 @@ export default function ProjectWorkloadTab({ projectId }: ProjectWorkloadTabProp
       {
         id: 'name',
         header: t('common.name'),
-        accessorFn: (row) => `${row.firstName} ${row.lastName}`,
+        accessorFn: (row) => `${row.user.firstName} ${row.user.lastName}`,
         cell: ({ getValue }) => (
           <span className="font-medium text-[#22150d]">
             {getValue<string>()}
@@ -62,8 +62,9 @@ export default function ProjectWorkloadTab({ projectId }: ProjectWorkloadTabProp
         ),
       },
       {
-        accessorKey: 'email',
+        id: 'email',
         header: t('employees.email'),
+        accessorFn: (row) => row.user.email,
         cell: ({ getValue }) => (
           <span className="text-[#5c4a3e]">{getValue<string>()}</span>
         ),
@@ -79,37 +80,18 @@ export default function ProjectWorkloadTab({ projectId }: ProjectWorkloadTabProp
         ),
       },
       {
-        accessorKey: 'reportsCount',
+        id: 'reportsCount',
         header: t('workload.reportsCount'),
         size: 80,
+        accessorFn: (row) => row.reports?.length ?? 0,
         cell: ({ getValue }) => (
           <span className="text-right tabular-nums text-[#5c4a3e] block">
             {getValue<number>()}
           </span>
         ),
       },
-      {
-        id: 'actions',
-        header: '',
-        size: 120,
-        enableSorting: false,
-        cell: ({ row }) => (
-          <div className="flex justify-end">
-            <button
-              type="button"
-              className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-[0.4rem] border border-[rgba(34,21,13,0.15)] text-[#5c4a3e] text-xs font-medium hover:bg-[rgba(34,21,13,0.06)] hover:text-[#22150d] transition-colors duration-150 cursor-pointer"
-              onClick={(e) => {
-                e.stopPropagation();
-                handleViewReports(row.original);
-              }}
-            >
-              {t('workload.viewReports')}
-            </button>
-          </div>
-        ),
-      },
     ],
-    [t, handleViewReports],
+    [t],
   );
 
   // ─── Mobile card renderer ─────────────────────────────────────────
@@ -118,13 +100,13 @@ export default function ProjectWorkloadTab({ projectId }: ProjectWorkloadTabProp
       <div className="bg-[#fdfaf0] border border-[rgba(34,21,13,0.15)] rounded-xl p-4">
         <div className="flex items-start justify-between gap-2 mb-2">
           <span className="font-medium text-[#22150d] text-sm">
-            {employee.firstName} {employee.lastName}
+            {employee.user.firstName} {employee.user.lastName}
           </span>
           <Badge variant="neutral">
-            {employee.reportsCount} {t('workload.reports')}
+            {employee.reports?.length ?? 0} {t('workload.reports')}
           </Badge>
         </div>
-        <p className="text-xs text-[#5c4a3e] mb-1">{employee.email}</p>
+        <p className="text-xs text-[#5c4a3e] mb-1">{employee.user.email}</p>
         <p className="text-xs text-[#7d6b5d]">
           {t('workload.totalHours')}: {formatHours(employee.totalHours)}
         </p>
@@ -159,7 +141,7 @@ export default function ProjectWorkloadTab({ projectId }: ProjectWorkloadTabProp
         size: 100,
       },
       {
-        accessorKey: 'hoursWorked',
+        accessorKey: 'hours',
         header: t('workload.hours'),
         size: 80,
         cell: ({ getValue }) => (
@@ -176,6 +158,18 @@ export default function ProjectWorkloadTab({ projectId }: ProjectWorkloadTabProp
             {getValue<string>() || '-'}
           </span>
         ),
+      },
+      {
+        accessorKey: 'userText',
+        header: t('workload.dayNotes'),
+        cell: ({ getValue }) => {
+          const text = getValue<string | null>();
+          return text ? (
+            <span className="text-sm text-[#7d6b5d] italic">{text}</span>
+          ) : (
+            <span className="text-sm text-[#b5a99a]">-</span>
+          );
+        },
       },
     ],
     [t],
@@ -215,6 +209,7 @@ export default function ProjectWorkloadTab({ projectId }: ProjectWorkloadTabProp
         data={employees}
         columns={columns}
         sorting
+        onRowClick={handleViewReports}
         renderMobileCard={renderMobileCard}
         emptyState={{
           title: t('workload.noReportsYet'),
@@ -229,7 +224,7 @@ export default function ProjectWorkloadTab({ projectId }: ProjectWorkloadTabProp
         title={
           selectedEmployee
             ? t('workload.reportsByEmployee', {
-                name: `${selectedEmployee.firstName} ${selectedEmployee.lastName}`,
+                name: `${selectedEmployee.user.firstName} ${selectedEmployee.user.lastName}`,
               })
             : ''
         }
@@ -247,7 +242,7 @@ export default function ProjectWorkloadTab({ projectId }: ProjectWorkloadTabProp
               <span className="text-[#5c4a3e]">
                 {t('workload.reportEntries')}:{' '}
                 <span className="font-semibold text-[#22150d]">
-                  {selectedEmployee.reportsCount}
+                  {selectedEmployee.reports?.length ?? 0}
                 </span>
               </span>
             </div>

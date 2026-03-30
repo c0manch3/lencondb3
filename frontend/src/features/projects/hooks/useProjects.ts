@@ -41,21 +41,23 @@ export interface UpdateProjectPayload {
 // ─── Workload response types ────────────────────────────────────────────────
 
 export interface EmployeeWorkloadEntry {
-  userId: string;
-  firstName: string;
-  lastName: string;
-  email: string;
+  user: {
+    id: string;
+    firstName: string;
+    lastName: string;
+    email: string;
+  };
   totalHours: number;
-  reportsCount: number;
-  reports?: WorkloadReport[];
+  reports: WorkloadReport[];
 }
 
 export interface WorkloadReport {
+  id: string;
   date: string;
-  hoursWorked: number;
+  hours: number;
   description?: string;
-  dayNotes?: string;
   totalDayHours?: number;
+  userText?: string | null;
 }
 
 export interface ProjectWorkloadResponse {
