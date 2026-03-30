@@ -23,7 +23,10 @@ export class WorkloadPlanController {
   constructor(private readonly workloadPlanService: WorkloadPlanService) {}
 
   @Get()
-  async findAll(@Query() filters: WorkloadPlanFilterDto) {
+  async findAll(
+    @Query() filters: WorkloadPlanFilterDto,
+    @CurrentUser() user: { sub: string; role: string },
+  ) {
     // Validate date params if provided
     if (filters.startDate && isNaN(new Date(filters.startDate).getTime())) {
       throw new BadRequestException('Invalid startDate format');
@@ -32,8 +35,14 @@ export class WorkloadPlanController {
       throw new BadRequestException('Invalid endDate format');
     }
 
+    // Security: Non-admin/manager users can only see their own plans
+    const effectiveUserId =
+      user.role !== 'Admin' && user.role !== 'Manager'
+        ? user.sub
+        : filters.userId;
+
     return this.workloadPlanService.findAll({
-      userId: filters.userId,
+      userId: effectiveUserId,
       projectId: filters.projectId,
       startDate: filters.startDate ? new Date(filters.startDate) : undefined,
       endDate: filters.endDate ? new Date(filters.endDate) : undefined,
@@ -48,6 +57,7 @@ export class WorkloadPlanController {
     @Query('endDate') endDate: string,
     @Query('userId') userId?: string,
     @Query('projectId') projectId?: string,
+    @CurrentUser() user?: { sub: string; role: string },
   ) {
     if (!startDate || !endDate) {
       throw new BadRequestException('startDate and endDate are required');
@@ -58,10 +68,16 @@ export class WorkloadPlanController {
       throw new BadRequestException('Invalid date format');
     }
 
+    // Security: Non-admin/manager users can only see their own plans
+    const effectiveUserId =
+      user && user.role !== 'Admin' && user.role !== 'Manager'
+        ? user.sub
+        : userId;
+
     return this.workloadPlanService.getCalendarView(
       start,
       end,
-      userId,
+      effectiveUserId,
       projectId,
     );
   }

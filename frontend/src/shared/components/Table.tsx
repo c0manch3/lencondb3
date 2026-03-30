@@ -32,7 +32,7 @@ function SkeletonRows({ columns }: { columns: number }) {
           className="border-b border-[rgba(34,21,13,0.10)] last:border-b-0"
         >
           {Array.from({ length: columns }, (_, colIdx) => (
-            <td key={colIdx} className="px-4 py-3">
+            <td key={colIdx} className="px-4 py-2">
               <div
                 className="h-4 rounded bg-[rgba(34,21,13,0.06)] animate-pulse"
                 style={{ width: colIdx === 0 ? w : '60%' }}
@@ -190,7 +190,7 @@ export default function Table<T>({
                     <th
                       key={header.id}
                       className={`
-                        px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider
+                        px-4 py-2 text-left text-xs font-semibold uppercase tracking-wider
                         whitespace-nowrap align-middle
                         border-b border-[rgba(34,21,13,0.20)]
                         ${sorted ? 'text-[#22150d] font-bold' : 'text-[#5c4a3e]'}
@@ -258,7 +258,7 @@ export default function Table<T>({
                   {row.getVisibleCells().map((cell) => (
                     <td
                       key={cell.id}
-                      className="px-4 py-3 text-sm text-[#22150d] align-middle"
+                      className="px-4 py-2 text-sm text-[#22150d] align-middle"
                     >
                       {flexRender(cell.column.columnDef.cell, cell.getContext())}
                     </td>

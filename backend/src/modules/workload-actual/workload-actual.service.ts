@@ -8,6 +8,7 @@ export class WorkloadActualService {
 
   async findAll(filters?: {
     userId?: string;
+    projectId?: string;
     startDate?: Date;
     endDate?: Date;
     page?: number;
@@ -18,6 +19,15 @@ export class WorkloadActualService {
     const where: any = {};
 
     if (filters?.userId) where.userId = filters.userId;
+
+    // Filter actuals that have at least one distribution for the given project
+    if (filters?.projectId) {
+      where.distributions = {
+        some: {
+          projectId: filters.projectId,
+        },
+      };
+    }
 
     if (filters?.startDate || filters?.endDate) {
       where.date = {};
@@ -247,6 +257,23 @@ export class WorkloadActualService {
     });
   }
 
+  async findDistribution(distributionId: string) {
+    const distribution = await this.prisma.projectWorkloadDistribution.findUnique({
+      where: { id: distributionId },
+      include: {
+        workloadActual: {
+          select: { id: true, userId: true },
+        },
+      },
+    });
+
+    if (!distribution) {
+      throw new NotFoundException('Distribution not found');
+    }
+
+    return distribution;
+  }
+
   async removeDistribution(distributionId: string) {
     const distribution = await this.prisma.projectWorkloadDistribution.findUnique({
       where: { id: distributionId },
@@ -274,6 +301,9 @@ export class WorkloadActualService {
         },
       },
       include: {
+        user: {
+          select: { id: true, firstName: true, lastName: true },
+        },
         distributions: {
           include: {
             project: {

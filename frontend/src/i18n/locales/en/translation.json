@@ -393,7 +393,18 @@
     "nextWeek": "Next week",
     "viewAllEmployeesAssigned": "View all {{count}} employees assigned",
     "planHours": "Planned hours",
-    "hoursShort": "h"
+    "hoursShort": "h",
+    "report_one": "report",
+    "report_other": "reports",
+    "plan_one": "plan",
+    "plan_other": "plans",
+    "workDistributionFor": "Work Distribution for {{date}}",
+    "totalHoursLabel": "Total hours",
+    "plannedProjectLabel": "Planned project",
+    "noPlanForDate": "No plan for this date",
+    "projectDistributionLabel": "Distribution by projects",
+    "employeeCountLabel": "Employees: {{count}}",
+    "hoursUnit": "Hours"
   },
   "analytics": {
     "title": "Analytics",

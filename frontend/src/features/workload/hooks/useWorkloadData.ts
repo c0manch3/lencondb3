@@ -10,6 +10,8 @@ import type {
 import {
   toPlanEntry,
   toActualEntry,
+  formatUserName,
+  getInitials,
   type WorkloadPlanEntry,
   type WorkloadActualEntry,
   type CalendarData,
@@ -19,8 +21,8 @@ import {
 
 const WORKLOAD_KEYS = {
   all: ['workload'] as const,
-  calendar: (startDate: string, endDate: string, projectId?: string, userId?: string) =>
-    ['workload', 'calendar', { startDate, endDate, projectId, userId }] as const,
+  calendar: (startDate: string, endDate: string, projectId?: string, userId?: string, canViewAll?: boolean) =>
+    ['workload', 'calendar', { startDate, endDate, projectId, userId, canViewAll }] as const,
   actuals: (startDate: string, endDate: string, userId?: string) =>
     ['workload', 'actuals', { startDate, endDate, userId }] as const,
   myActuals: (startDate: string, endDate: string) =>
@@ -62,42 +64,72 @@ export function useCalendarData(
   endDate: string,
   projectId?: string,
   userId?: string,
+  canViewAllEmployees?: boolean,
 ) {
   return useQuery({
-    queryKey: WORKLOAD_KEYS.calendar(startDate, endDate, projectId, userId),
+    queryKey: WORKLOAD_KEYS.calendar(startDate, endDate, projectId, userId, canViewAllEmployees),
     queryFn: async (): Promise<CalendarData> => {
       const params: Record<string, string> = { startDate, endDate };
       if (projectId) params.projectId = projectId;
       if (userId) params.userId = userId;
 
+      // Determine actuals fetch strategy:
+      // - If userId is specified, fetch that user's actuals via paginated endpoint
+      // - If canViewAllEmployees and no userId, fetch ALL employees' actuals
+      // - Otherwise, fetch only the current user's actuals
+      const fetchActuals = () => {
+        if (userId) {
+          return api.get<PaginatedResponse<WorkloadActual>>('/workload-actual', {
+            params: { ...params, limit: '10000' },
+          });
+        }
+        if (canViewAllEmployees) {
+          return api.get<PaginatedResponse<WorkloadActual>>('/workload-actual', {
+            params: { ...params, limit: '10000' },
+          });
+        }
+        return api.get<WorkloadActual[]>('/workload-actual/my', {
+          params: { startDate, endDate },
+        });
+      };
+
       // Fetch plans and actuals in parallel
       const [plansRes, actualsRes] = await Promise.all([
-        api.get<WorkloadPlan[]>('/workload-plan/calendar', { params }),
-        userId
-          ? api.get<PaginatedResponse<WorkloadActual>>('/workload-actual', {
-              params: { ...params, limit: '10000' },
-            })
-          : api.get<WorkloadActual[]>('/workload-actual/my', {
-              params: { startDate, endDate },
-            }),
+        api.get<Record<string, unknown[]>>('/workload-plan/calendar', { params }),
+        fetchActuals(),
       ]);
 
-      const rawPlans: WorkloadPlan[] = plansRes.data;
       const rawActuals: WorkloadActual[] = Array.isArray(actualsRes.data)
         ? actualsRes.data
         : actualsRes.data.data;
 
-      // Group plans by date
+      // Plans endpoint returns grouped object: Record<string, CalendarPlanItem[]>
+      const groupedPlans = plansRes.data as Record<string, Array<{
+        id: string;
+        user: { id: string; firstName: string; lastName: string };
+        project: { id: string; name: string };
+        manager: { id: string; firstName: string; lastName: string };
+        hours: number | null;
+      }>>;
+
       const plans = new Map<string, WorkloadPlanEntry[]>();
-      for (const plan of rawPlans) {
-        const dateKey = plan.date.slice(0, 10);
-        const entry = toPlanEntry(plan);
-        const existing = plans.get(dateKey);
-        if (existing) {
-          existing.push(entry);
-        } else {
-          plans.set(dateKey, [entry]);
-        }
+      for (const [dateKey, datePlans] of Object.entries(groupedPlans)) {
+        if (!Array.isArray(datePlans)) continue;
+        const entries: WorkloadPlanEntry[] = datePlans
+          .filter(item => item && item.user && item.project && item.manager)
+          .map(item => ({
+            id: item.id,
+            userId: item.user.id,
+            projectId: item.project.id,
+            managerId: item.manager.id,
+            date: dateKey,
+            hours: item.hours ?? null,
+            userName: formatUserName(item.user),
+            userInitials: getInitials(item.user.firstName, item.user.lastName),
+            projectName: item.project.name,
+            managerName: formatUserName(item.manager),
+          }));
+        plans.set(dateKey, entries);
       }
 
       // Group actuals by date
@@ -289,10 +321,18 @@ export function getEmployeesForDate(
   return Array.from(ids);
 }
 
-/** Get count of actual reports on a date. */
-export function getActualReportsCount(
+/** Get count of actuals for a date (aggregate). */
+export function getActualsCountForDate(
   calendarData: CalendarData | undefined,
   date: string,
 ): number {
   return calendarData?.actuals.get(date)?.length ?? 0;
+}
+
+/** Get count of plans for a date (aggregate). */
+export function getPlansCountForDate(
+  calendarData: CalendarData | undefined,
+  date: string,
+): number {
+  return calendarData?.plans.get(date)?.length ?? 0;
 }

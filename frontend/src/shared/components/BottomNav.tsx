@@ -3,7 +3,6 @@ import { useLocation } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { useAuth } from '@/shared/auth/AuthContext';
 import { useUnsavedChanges } from '@/shared/hooks/useUnsavedChanges';
-import { useOverdueBadge } from '@/shared/hooks/useOverdueBadge';
 import type { UserRole } from '@/shared/types';
 
 // ─── Navigation config ──────────────────────────────────────────────────────
@@ -112,7 +111,6 @@ export default function BottomNav() {
   const moreMenuRef = useRef<HTMLDivElement>(null);
 
   const role = user?.role;
-  const { data: overdueSummary } = useOverdueBadge(role);
 
   // Close "more" menu on outside click
   useEffect(() => {
@@ -211,18 +209,6 @@ export default function BottomNav() {
                 >
                   {item.icon('w-5 h-5')}
                   <span>{t(item.labelKey)}</span>
-
-                  {/* Overdue badge on Expenses */}
-                  {item.key === 'expenses' &&
-                    overdueSummary &&
-                    overdueSummary.count > 0 && (
-                      <span
-                        className="ml-auto min-w-[20px] h-5 flex items-center justify-center rounded-full bg-red-600 text-white text-xs font-semibold px-1.5"
-                        role="status"
-                      >
-                        {overdueSummary.count}
-                      </span>
-                    )}
                 </button>
               ))}
 
@@ -305,17 +291,6 @@ export default function BottomNav() {
             <span className="text-[10px] font-medium leading-tight">
               {t('navigation.more')}
             </span>
-
-            {/* Badge indicator if expenses overflow has overdue */}
-            {overdueSummary &&
-              overdueSummary.count > 0 &&
-              !moreOpen && (
-                <span
-                  className="absolute top-1.5 right-1/4 w-2 h-2 rounded-full bg-red-600"
-                  role="status"
-                  aria-label={`${overdueSummary.count} overdue`}
-                />
-              )}
           </button>
         )}
       </nav>

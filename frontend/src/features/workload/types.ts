@@ -118,7 +118,7 @@ export function getWorkloadPermissions(
   const userId = user?.id ?? '';
 
   return {
-    canCreatePlan: role !== 'Trial' && role !== null,
+    canCreatePlan: role === 'Manager' || role === 'Employee',
     canEditPlan: (plan: WorkloadPlanEntry) => {
       if (role === 'Admin') return true;
       if (role === 'Manager') return plan.managerId === userId;
@@ -131,7 +131,7 @@ export function getWorkloadPermissions(
       if (role === 'Employee') return plan.managerId === userId;
       return false;
     },
-    canLogActual: role !== 'Trial' && role !== null,
+    canLogActual: role === 'Manager' || role === 'Employee',
     canExport: role === 'Admin' || role === 'Manager',
     canFilterByEmployee: role === 'Admin' || role === 'Manager',
     canViewAllEmployees: role === 'Admin' || role === 'Manager',

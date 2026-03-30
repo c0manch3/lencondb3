@@ -1,4 +1,4 @@
-import { type FC, useCallback } from 'react';
+import { type FC, useCallback, useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
 import type {
   CalendarDay,
@@ -8,7 +8,7 @@ import type {
   WorkloadPermissions,
 } from '../types';
 import { PLAN_ENTRY_COLORS, type PlanEntryColorType } from '../types';
-import { getPlansForDate, getActualsForDate, getEmployeesForDate } from '../hooks/useWorkloadData';
+import { getPlansForDate, getActualsForDate } from '../hooks/useWorkloadData';
 import type { DayLabel } from '../hooks/useCalendarNavigation';
 
 // ─── Entry color resolver ───────────────────────────────────────────────────
@@ -26,6 +26,8 @@ interface MonthViewProps {
   calendarData: CalendarData | undefined;
   isLoading: boolean;
   permissions: WorkloadPermissions;
+  isAllEmployeesMode: boolean;
+  projectFilter?: string;
   onAddPlan: (date: string) => void;
   onEditPlan: (plan: WorkloadPlanEntry) => void;
   onViewActual: (actual: WorkloadActualEntry) => void;
@@ -39,11 +41,16 @@ interface MonthViewProps {
 const PlanChip: FC<{
   entry: WorkloadPlanEntry;
   colorType: PlanEntryColorType;
+  showProject?: boolean;
   onClick: () => void;
-}> = ({ entry, colorType, onClick }) => {
+}> = ({ entry, colorType, showProject, onClick }) => {
   const colors = PLAN_ENTRY_COLORS[colorType];
   const { t } = useTranslation();
   const hoursLabel = entry.hours != null ? `${entry.hours}${t('workload.hoursShort')}` : '';
+
+  const label = showProject
+    ? `${entry.projectName} ${hoursLabel}`.trim()
+    : `${entry.userInitials} ${hoursLabel}`.trim();
 
   return (
     <button
@@ -60,7 +67,7 @@ const PlanChip: FC<{
       }}
       title={`${entry.userName}\n${entry.projectName}${hoursLabel ? `\n${hoursLabel}` : ''}`}
     >
-      {entry.userInitials} {hoursLabel}
+      {label}
     </button>
   );
 };
@@ -69,10 +76,18 @@ const PlanChip: FC<{
 
 const ActualChip: FC<{
   entry: WorkloadActualEntry;
+  showProject?: boolean;
   onClick: () => void;
-}> = ({ entry, onClick }) => {
+}> = ({ entry, showProject, onClick }) => {
   const colors = PLAN_ENTRY_COLORS.actual;
   const { t } = useTranslation();
+
+  const firstProjectName =
+    entry.distributions.length > 0 ? entry.distributions[0].projectName : '';
+
+  const label = showProject
+    ? `${firstProjectName} ${entry.hoursWorked}${t('workload.hoursShort')}`.trim()
+    : `${entry.userInitials} ${entry.hoursWorked}${t('workload.hoursShort')}`.trim();
 
   return (
     <button
@@ -89,8 +104,57 @@ const ActualChip: FC<{
       }}
       title={`${entry.userName}\n${entry.hoursWorked}${t('workload.hoursShort')} ${t('workload.actual').toLowerCase()}`}
     >
-      {entry.userInitials} {entry.hoursWorked}{t('workload.hoursShort')}
+      {label}
     </button>
+  );
+};
+
+// ─── Action buttons ─────────────────────────────────────────────────────────
+
+const CellActions: FC<{
+  day: CalendarDay;
+  permissions: WorkloadPermissions;
+  hasEntries: boolean;
+  onAddPlan: (date: string) => void;
+  onLogActual: (date: string) => void;
+}> = ({ day, permissions, hasEntries, onAddPlan, onLogActual }) => {
+  const { t } = useTranslation();
+
+  const showPlanBtn = permissions.canCreatePlan && (day.isFuture || day.isToday);
+  const showActualBtn = permissions.canLogActual && (day.isPast || day.isToday);
+
+  if (!showPlanBtn && !showActualBtn) return null;
+
+  // On cells with existing entries, buttons are invisible until hover
+  const visibilityClass = hasEntries ? 'opacity-0 group-hover:opacity-100' : '';
+
+  return (
+    <div className={`flex flex-col gap-0.5 mt-0.5 transition-opacity ${visibilityClass}`}>
+      {showPlanBtn && (
+        <button
+          type="button"
+          className="text-[0.625rem] text-[#b49132] hover:text-[#6b5520] cursor-pointer text-left transition-colors"
+          onClick={(e) => {
+            e.stopPropagation();
+            onAddPlan(day.date);
+          }}
+        >
+          + {t('workload.planned')}
+        </button>
+      )}
+      {showActualBtn && (
+        <button
+          type="button"
+          className="text-[0.625rem] text-[#5c4a3e] hover:text-[#22150d] cursor-pointer text-left transition-colors"
+          onClick={(e) => {
+            e.stopPropagation();
+            onLogActual(day.date);
+          }}
+        >
+          + {t('workload.actual')}
+        </button>
+      )}
+    </div>
   );
 };
 
@@ -102,6 +166,8 @@ const MonthView: FC<MonthViewProps> = ({
   calendarData,
   isLoading,
   permissions,
+  isAllEmployeesMode,
+  projectFilter,
   onAddPlan,
   onEditPlan,
   onViewActual,
@@ -112,27 +178,40 @@ const MonthView: FC<MonthViewProps> = ({
   const { t } = useTranslation();
 
   const handleCellClick = useCallback(
-    (day: CalendarDay) => {
-      onSelectDate(day.date);
+    (day: CalendarDay, plansCount: number, actualsCount: number) => {
+      if (isAllEmployeesMode) {
+        // Only open modal if there is data to show
+        if (actualsCount > 0 || plansCount > 0) {
+          onViewDateEmployees(day.date);
+        }
+      } else {
+        onSelectDate(day.date);
+      }
     },
-    [onSelectDate],
+    [isAllEmployeesMode, onViewDateEmployees, onSelectDate],
   );
 
-  const dayLabelMap: Record<DayLabel, string> = {
-    mon: t('workload.mon'),
-    tue: t('workload.tue'),
-    wed: t('workload.wed'),
-    thu: t('workload.thu'),
-    fri: t('workload.fri'),
-    sat: t('workload.sat'),
-    sun: t('workload.sun'),
-  };
+  const dayLabelMap: Record<DayLabel, string> = useMemo(
+    () => ({
+      mon: t('workload.mon'),
+      tue: t('workload.tue'),
+      wed: t('workload.wed'),
+      thu: t('workload.thu'),
+      fri: t('workload.fri'),
+      sat: t('workload.sat'),
+      sun: t('workload.sun'),
+    }),
+    [t],
+  );
 
   // Split days into weeks (7 per row)
-  const weeks: CalendarDay[][] = [];
-  for (let i = 0; i < calendarDays.length; i += 7) {
-    weeks.push(calendarDays.slice(i, i + 7));
-  }
+  const weeks: CalendarDay[][] = useMemo(() => {
+    const result: CalendarDay[][] = [];
+    for (let i = 0; i < calendarDays.length; i += 7) {
+      result.push(calendarDays.slice(i, i + 7));
+    }
+    return result;
+  }, [calendarDays]);
 
   return (
     <div className="bg-[#fdfaf0] border border-[rgba(34,21,13,0.15)] rounded-xl overflow-hidden">
@@ -166,27 +245,32 @@ const MonthView: FC<MonthViewProps> = ({
           <div key={wIdx} className="grid grid-cols-7">
             {week.map((day) => {
               const plans = getPlansForDate(calendarData, day.date);
-              const actuals = getActualsForDate(calendarData, day.date);
-              const employeeCount = getEmployeesForDate(calendarData, day.date).length;
-              const colorType = getPlanColorType(day);
+              const rawActuals = getActualsForDate(calendarData, day.date);
 
-              // Show max 3 entries in month view, then "+N more"
-              const MAX_VISIBLE = 3;
-              const allEntries = plans.length + actuals.length;
-              const hiddenCount = Math.max(0, allEntries - MAX_VISIBLE);
+              // Filter actuals by project if a project filter is active
+              const actuals = projectFilter
+                ? rawActuals.filter((a) =>
+                    a.distributions.some((d) => d.projectId === projectFilter),
+                  )
+                : rawActuals;
+
+              const plansCount = plans.length;
+              const actualsCount = actuals.length;
+              const hasEntries = plansCount > 0 || actualsCount > 0;
+              const colorType = getPlanColorType(day);
 
               return (
                 <div
                   key={day.date}
                   className={`
-                    min-h-[6rem] p-1.5
+                    group min-h-[6rem] p-1.5
                     border-r border-b border-[rgba(34,21,13,0.08)]
                     cursor-pointer transition-colors duration-100
                     hover:bg-[rgba(34,21,13,0.03)]
                     ${day.isWeekend ? 'bg-[rgba(34,21,13,0.02)]' : ''}
                     ${!day.isCurrentMonth ? 'opacity-40' : ''}
                   `}
-                  onClick={() => handleCellClick(day)}
+                  onClick={() => handleCellClick(day, plansCount, actualsCount)}
                   role="gridcell"
                   aria-label={day.date}
                 >
@@ -206,82 +290,34 @@ const MonthView: FC<MonthViewProps> = ({
                     >
                       {day.dayOfMonth}
                     </span>
-
-                    {/* Employee count badge */}
-                    {permissions.canViewAllEmployees && employeeCount > 0 && (
-                      <button
-                        type="button"
-                        className="text-[0.625rem] text-[#7d6b5d] hover:text-[#22150d] cursor-pointer transition-colors"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          onViewDateEmployees(day.date);
-                        }}
-                        title={t('workload.employeesAssignedCount', { count: employeeCount })}
-                      >
-                        {employeeCount}
-                      </button>
-                    )}
                   </div>
 
-                  {/* Plan entries */}
-                  {plans.slice(0, MAX_VISIBLE).map((plan) => (
-                    <PlanChip
-                      key={plan.id}
-                      entry={plan}
-                      colorType={colorType}
-                      onClick={() => {
-                        if (permissions.canEditPlan(plan) && !day.isPast) {
-                          onEditPlan(plan);
-                        }
-                      }}
+                  {isAllEmployeesMode ? (
+                    /* ── Aggregate count mode ── */
+                    <AggregateCell
+                      day={day}
+                      actualsCount={actualsCount}
+                      plansCount={plansCount}
+                      hasEntries={hasEntries}
+                      permissions={permissions}
+                      onViewDateEmployees={onViewDateEmployees}
+                      onAddPlan={onAddPlan}
+                      onLogActual={onLogActual}
                     />
-                  ))}
-
-                  {/* Actual entries (only show if under MAX_VISIBLE) */}
-                  {plans.length < MAX_VISIBLE &&
-                    actuals.slice(0, MAX_VISIBLE - plans.length).map((actual) => (
-                      <ActualChip
-                        key={actual.id}
-                        entry={actual}
-                        onClick={() => onViewActual(actual)}
-                      />
-                    ))}
-
-                  {/* Overflow indicator */}
-                  {hiddenCount > 0 && (
-                    <div className="text-[0.625rem] text-[#7d6b5d] mt-0.5 cursor-pointer hover:text-[#22150d]">
-                      +{hiddenCount}
-                    </div>
-                  )}
-
-                  {/* Add action indicators on hover */}
-                  {day.isCurrentMonth && allEntries === 0 && (
-                    <div className="opacity-0 hover:opacity-100 transition-opacity">
-                      {permissions.canCreatePlan && !day.isPast && (
-                        <button
-                          type="button"
-                          className="text-[0.625rem] text-[#b49132] hover:text-[#6b5520] cursor-pointer"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            onAddPlan(day.date);
-                          }}
-                        >
-                          + {t('workload.planned')}
-                        </button>
-                      )}
-                      {permissions.canLogActual && !day.isFuture && (
-                        <button
-                          type="button"
-                          className="text-[0.625rem] text-[#5c4a3e] hover:text-[#22150d] block cursor-pointer"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            onLogActual(day.date);
-                          }}
-                        >
-                          + {t('workload.actual')}
-                        </button>
-                      )}
-                    </div>
+                  ) : (
+                    /* ── Individual chip mode ── */
+                    <ChipCell
+                      day={day}
+                      plans={plans}
+                      actuals={actuals}
+                      colorType={colorType}
+                      hasEntries={hasEntries}
+                      permissions={permissions}
+                      onEditPlan={onEditPlan}
+                      onViewActual={onViewActual}
+                      onAddPlan={onAddPlan}
+                      onLogActual={onLogActual}
+                    />
                   )}
                 </div>
               );
@@ -290,6 +326,158 @@ const MonthView: FC<MonthViewProps> = ({
         ))
       )}
     </div>
+  );
+};
+
+// ─── Aggregate cell (all-employees mode) ────────────────────────────────────
+
+const AggregateCell: FC<{
+  day: CalendarDay;
+  actualsCount: number;
+  plansCount: number;
+  hasEntries: boolean;
+  permissions: WorkloadPermissions;
+  onViewDateEmployees: (date: string) => void;
+  onAddPlan: (date: string) => void;
+  onLogActual: (date: string) => void;
+}> = ({
+  day,
+  actualsCount,
+  plansCount,
+  hasEntries,
+  permissions,
+  onViewDateEmployees,
+  onAddPlan,
+  onLogActual,
+}) => {
+  const { t } = useTranslation();
+
+  // Actuals take priority for past/today; plans show for future (or today with no actuals)
+  const showActuals = (day.isPast || day.isToday) && actualsCount > 0;
+  const showPlans = !showActuals && plansCount > 0 && (day.isFuture || day.isToday);
+
+  return (
+    <>
+      {showActuals && (
+        <button
+          type="button"
+          className="flex flex-col items-center w-full cursor-pointer hover:opacity-80 transition-opacity mt-1"
+          onClick={(e) => {
+            e.stopPropagation();
+            onViewDateEmployees(day.date);
+          }}
+        >
+          <span className="text-[#5c4a3e] font-bold text-lg leading-tight">
+            {actualsCount}
+          </span>
+          <span className="text-xs text-[#7d6b5d]">
+            {t('workload.report', { count: actualsCount })}
+          </span>
+        </button>
+      )}
+
+      {showPlans && (
+        <button
+          type="button"
+          className="flex flex-col items-center w-full cursor-pointer hover:opacity-80 transition-opacity mt-1"
+          onClick={(e) => {
+            e.stopPropagation();
+            onViewDateEmployees(day.date);
+          }}
+        >
+          <span className="text-[#6b5520] font-bold text-lg leading-tight">
+            {plansCount}
+          </span>
+          <span className="text-xs text-[#7d6b5d]">
+            {t('workload.plan', { count: plansCount })}
+          </span>
+        </button>
+      )}
+
+      <CellActions
+        day={day}
+        permissions={permissions}
+        hasEntries={hasEntries}
+        onAddPlan={onAddPlan}
+        onLogActual={onLogActual}
+      />
+    </>
+  );
+};
+
+// ─── Chip cell (individual employee mode) ───────────────────────────────────
+
+const ChipCell: FC<{
+  day: CalendarDay;
+  plans: WorkloadPlanEntry[];
+  actuals: WorkloadActualEntry[];
+  colorType: PlanEntryColorType;
+  hasEntries: boolean;
+  permissions: WorkloadPermissions;
+  onEditPlan: (plan: WorkloadPlanEntry) => void;
+  onViewActual: (actual: WorkloadActualEntry) => void;
+  onAddPlan: (date: string) => void;
+  onLogActual: (date: string) => void;
+}> = ({
+  day,
+  plans,
+  actuals,
+  colorType,
+  hasEntries,
+  permissions,
+  onEditPlan,
+  onViewActual,
+  onAddPlan,
+  onLogActual,
+}) => {
+  const MAX_VISIBLE = 3;
+  const totalEntries = plans.length + actuals.length;
+  const hiddenCount = Math.max(0, totalEntries - MAX_VISIBLE);
+
+  // Show plans first, then actuals, up to MAX_VISIBLE total
+  const visiblePlans = plans.slice(0, MAX_VISIBLE);
+  const remainingSlots = MAX_VISIBLE - visiblePlans.length;
+  const visibleActuals = remainingSlots > 0 ? actuals.slice(0, remainingSlots) : [];
+
+  return (
+    <>
+      {visiblePlans.map((plan) => (
+        <PlanChip
+          key={plan.id}
+          entry={plan}
+          colorType={colorType}
+          showProject
+          onClick={() => {
+            if (permissions.canEditPlan(plan) && !day.isPast) {
+              onEditPlan(plan);
+            }
+          }}
+        />
+      ))}
+
+      {visibleActuals.map((actual) => (
+        <ActualChip
+          key={actual.id}
+          entry={actual}
+          showProject
+          onClick={() => onViewActual(actual)}
+        />
+      ))}
+
+      {hiddenCount > 0 && (
+        <div className="text-[0.625rem] text-[#7d6b5d] mt-0.5 cursor-pointer hover:text-[#22150d]">
+          +{hiddenCount}
+        </div>
+      )}
+
+      <CellActions
+        day={day}
+        permissions={permissions}
+        hasEntries={hasEntries}
+        onAddPlan={onAddPlan}
+        onLogActual={onLogActual}
+      />
+    </>
   );
 };
 

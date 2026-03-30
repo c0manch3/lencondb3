@@ -82,11 +82,19 @@ export default function WorkloadPage() {
   const [employeeFilter, setEmployeeFilter] = useState('');
 
   // ─── Data ───────────────────────────────────────────────────────
+  const isAllEmployeesMode = permissions.canViewAllEmployees && !employeeFilter;
+
+  // Security: For employees who can't view all, scope to their own data
+  const effectiveUserId = permissions.canFilterByEmployee
+    ? (employeeFilter || undefined)
+    : user?.id;
+
   const { data: calendarData, isLoading } = useCalendarData(
     nav.rangeStart,
     nav.rangeEnd,
     projectFilter || undefined,
-    employeeFilter || undefined,
+    effectiveUserId,
+    permissions.canViewAllEmployees,
   );
   const { data: employees = [] } = useWorkloadEmployees();
   const { data: projects = [] } = useWorkloadProjects();
@@ -273,6 +281,8 @@ export default function WorkloadPage() {
             calendarData={calendarData}
             isLoading={isLoading}
             permissions={permissions}
+            isAllEmployeesMode={isAllEmployeesMode}
+            projectFilter={projectFilter || undefined}
             onAddPlan={handleAddPlan}
             onEditPlan={handleEditPlan}
             onViewActual={handleViewActual}
@@ -289,10 +299,13 @@ export default function WorkloadPage() {
             calendarData={calendarData}
             isLoading={isLoading}
             permissions={permissions}
+            isAllEmployeesMode={isAllEmployeesMode}
+            projectFilter={projectFilter || undefined}
             onAddPlan={handleAddPlan}
             onEditPlan={handleEditPlan}
             onViewActual={handleViewActual}
             onLogActual={handleLogActual}
+            onViewDateEmployees={handleViewDateEmployees}
             onSelectDate={nav.selectDate}
           />
         )}
@@ -354,19 +367,6 @@ export default function WorkloadPage() {
         onClose={() => setDateEmployeesOpen(false)}
         date={dateEmployeesDate}
         calendarData={calendarData}
-        permissions={permissions}
-        onEditPlan={(plan) => {
-          setDateEmployeesOpen(false);
-          handleEditPlan(plan);
-        }}
-        onDeletePlan={(plan) => {
-          setDateEmployeesOpen(false);
-          handleDeletePlan(plan);
-        }}
-        onViewActual={(actual) => {
-          setDateEmployeesOpen(false);
-          handleViewActual(actual);
-        }}
       />
 
       <ExportModal

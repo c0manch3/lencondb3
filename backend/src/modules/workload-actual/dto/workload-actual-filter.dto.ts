@@ -8,6 +8,10 @@ export class WorkloadActualFilterDto extends PaginationDto {
 
   @IsOptional()
   @IsString()
+  projectId?: string;
+
+  @IsOptional()
+  @IsString()
   startDate?: string;
 
   @IsOptional()

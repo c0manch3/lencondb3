@@ -662,22 +662,22 @@ export default function ExpensesPage() {
                           key={expense.id}
                           className="border-b border-[rgba(34,21,13,0.10)] last:border-b-0 hover:bg-[rgba(34,21,13,0.04)] transition-colors duration-150"
                         >
-                          <td className="px-4 py-3 text-sm align-middle" style={{ width: 100 }}>
+                          <td className="px-4 py-2 text-sm align-middle" style={{ width: 100 }}>
                             <span className="text-[#22150d] tabular-nums">
                               {formatDate(expense.date)}
                             </span>
                           </td>
-                          <td className="px-4 py-3 text-sm align-middle" style={{ width: 120 }}>
+                          <td className="px-4 py-2 text-sm align-middle" style={{ width: 120 }}>
                             <span className="text-right tabular-nums font-medium block text-[#22150d]">
                               {formatCurrency(expense.amount)}
                             </span>
                           </td>
-                          <td className="px-4 py-3 text-sm align-middle" style={{ width: 90 }}>
+                          <td className="px-4 py-2 text-sm align-middle" style={{ width: 90 }}>
                             <span className="text-right tabular-nums block text-[#5c4a3e]">
                               {formatCurrency(expense.vatAmount)}
                             </span>
                           </td>
-                          <td className="px-4 py-3 text-sm align-middle" style={{ width: 110 }}>
+                          <td className="px-4 py-2 text-sm align-middle" style={{ width: 110 }}>
                             <Badge
                               variant={
                                 CATEGORY_BADGE_VARIANT[expense.category] as
@@ -690,12 +690,12 @@ export default function ExpensesPage() {
                               {t(`expenses.categories.${expense.category}`)}
                             </Badge>
                           </td>
-                          <td className="px-4 py-3 text-sm align-middle">
+                          <td className="px-4 py-2 text-sm align-middle">
                             <span className="text-[#5c4a3e] truncate block max-w-[240px]">
                               {expense.description || '\u2014'}
                             </span>
                           </td>
-                          <td className="px-4 py-3 text-sm align-middle" style={{ width: 80 }}>
+                          <td className="px-4 py-2 text-sm align-middle" style={{ width: 80 }}>
                             <div className="flex items-center justify-end gap-1">
                               <button
                                 type="button"

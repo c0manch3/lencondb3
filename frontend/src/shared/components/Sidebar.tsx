@@ -3,7 +3,6 @@ import { useLocation } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { useAuth } from '@/shared/auth/AuthContext';
 import { useUnsavedChanges } from '@/shared/hooks/useUnsavedChanges';
-import { useOverdueBadge } from '@/shared/hooks/useOverdueBadge';
 import type { UserRole } from '@/shared/types';
 
 // ─── Navigation config ──────────────────────────────────────────────────────
@@ -101,7 +100,6 @@ export default function Sidebar() {
   const { attemptNavigation } = useUnsavedChanges();
 
   const role = user?.role;
-  const { data: overdueSummary } = useOverdueBadge(role);
 
   const navigateTo = useCallback(
     (path: string) => {
@@ -150,19 +148,6 @@ export default function Sidebar() {
               >
                 {item.icon}
                 <span>{t(item.labelKey)}</span>
-
-                {/* Overdue badge on Expenses (Admin only) */}
-                {item.key === 'expenses' &&
-                  overdueSummary &&
-                  overdueSummary.count > 0 && (
-                    <span
-                      className="ml-auto min-w-[20px] h-5 flex items-center justify-center rounded-full bg-red-600 text-white text-[10px] font-semibold px-1"
-                      title={`${overdueSummary.count} overdue (${overdueSummary.totalAmount.toLocaleString('ru-RU')} р.)`}
-                      role="status"
-                    >
-                      {overdueSummary.count}
-                    </span>
-                  )}
               </button>
             </li>
           ))}

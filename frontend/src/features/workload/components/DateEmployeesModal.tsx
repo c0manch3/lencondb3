@@ -1,32 +1,12 @@
 import { type FC, useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Modal, Button, Badge } from '@/shared/components';
+import { Modal, Button } from '@/shared/components';
 import type {
   CalendarData,
   WorkloadPlanEntry,
   WorkloadActualEntry,
-  WorkloadPermissions,
 } from '../types';
-import { PLAN_ENTRY_COLORS } from '../types';
 import { getPlansForDate, getActualsForDate } from '../hooks/useWorkloadData';
-
-// ─── Icons ──────────────────────────────────────────────────────────────────
-
-function PencilIcon() {
-  return (
-    <svg className="w-3.5 h-3.5" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
-      <path d="M2.695 14.763l-1.262 3.154a.5.5 0 00.65.65l3.155-1.262a4 4 0 001.343-.885L17.5 5.5a2.121 2.121 0 00-3-3L3.58 13.42a4 4 0 00-.885 1.343z" />
-    </svg>
-  );
-}
-
-function TrashIcon() {
-  return (
-    <svg className="w-3.5 h-3.5" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
-      <path fillRule="evenodd" d="M8.75 1A2.75 2.75 0 006 3.75v.443c-.795.077-1.584.176-2.365.298a.75.75 0 10.23 1.482l.149-.022.841 10.518A2.75 2.75 0 007.596 19h4.807a2.75 2.75 0 002.742-2.53l.841-10.519.149.023a.75.75 0 00.23-1.482A41.03 41.03 0 0014 4.193V3.75A2.75 2.75 0 0011.25 1h-2.5zM10 4c.84 0 1.673.025 2.5.075V3.75c0-.69-.56-1.25-1.25-1.25h-2.5c-.69 0-1.25.56-1.25 1.25v.325C8.327 4.025 9.16 4 10 4zM8.58 7.72a.75.75 0 00-1.5.06l.3 7.5a.75.75 0 101.5-.06l-.3-7.5zm4.34.06a.75.75 0 10-1.5-.06l-.3 7.5a.75.75 0 101.5.06l.3-7.5z" clipRule="evenodd" />
-    </svg>
-  );
-}
 
 // ─── Props ──────────────────────────────────────────────────────────────────
 
@@ -35,10 +15,6 @@ interface DateEmployeesModalProps {
   onClose: () => void;
   date: string;
   calendarData: CalendarData | undefined;
-  permissions: WorkloadPermissions;
-  onEditPlan: (plan: WorkloadPlanEntry) => void;
-  onDeletePlan: (plan: WorkloadPlanEntry) => void;
-  onViewActual: (actual: WorkloadActualEntry) => void;
 }
 
 // ─── Employee group ─────────────────────────────────────────────────────────
@@ -48,6 +24,19 @@ interface EmployeeGroup {
   userName: string;
   plans: WorkloadPlanEntry[];
   actuals: WorkloadActualEntry[];
+  totalHours: number;
+}
+
+// ─── Date formatter ─────────────────────────────────────────────────────────
+
+function formatDateLocalized(dateStr: string, locale: string): string {
+  const d = new Date(dateStr + 'T00:00:00');
+  return d.toLocaleDateString(locale === 'ru' ? 'ru-RU' : 'en-US', {
+    weekday: 'long',
+    day: 'numeric',
+    month: 'long',
+    year: 'numeric',
+  });
 }
 
 // ─── Component ──────────────────────────────────────────────────────────────
@@ -57,19 +46,13 @@ const DateEmployeesModal: FC<DateEmployeesModalProps> = ({
   onClose,
   date,
   calendarData,
-  permissions,
-  onEditPlan,
-  onDeletePlan,
-  onViewActual,
 }) => {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
 
-  const todayStr = useMemo(() => {
-    const d = new Date();
-    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
-  }, []);
-
-  const isPast = date < todayStr;
+  const formattedDate = useMemo(() => {
+    if (!date) return '';
+    return formatDateLocalized(date, i18n.language);
+  }, [date, i18n.language]);
 
   const groups = useMemo((): EmployeeGroup[] => {
     const plans = getPlansForDate(calendarData, date);
@@ -80,7 +63,7 @@ const DateEmployeesModal: FC<DateEmployeesModalProps> = ({
     for (const plan of plans) {
       let group = groupMap.get(plan.userId);
       if (!group) {
-        group = { userId: plan.userId, userName: plan.userName, plans: [], actuals: [] };
+        group = { userId: plan.userId, userName: plan.userName, plans: [], actuals: [], totalHours: 0 };
         groupMap.set(plan.userId, group);
       }
       group.plans.push(plan);
@@ -89,10 +72,11 @@ const DateEmployeesModal: FC<DateEmployeesModalProps> = ({
     for (const actual of actuals) {
       let group = groupMap.get(actual.userId);
       if (!group) {
-        group = { userId: actual.userId, userName: actual.userName, plans: [], actuals: [] };
+        group = { userId: actual.userId, userName: actual.userName, plans: [], actuals: [], totalHours: 0 };
         groupMap.set(actual.userId, group);
       }
       group.actuals.push(actual);
+      group.totalHours += actual.hoursWorked;
     }
 
     return Array.from(groupMap.values()).sort((a, b) =>
@@ -104,131 +88,158 @@ const DateEmployeesModal: FC<DateEmployeesModalProps> = ({
     <Modal
       isOpen={isOpen}
       onClose={onClose}
-      title={t('workload.workAssignmentsFor', { date })}
+      title={t('workload.workDistributionFor', { date: formattedDate })}
       size="lg"
       actions={
-        <Button variant="ghost" onClick={onClose}>
-          {t('common.close')}
-        </Button>
+        <div className="flex items-center justify-between w-full">
+          <span className="text-sm text-[#7d6b5d]">
+            {t('workload.employeeCountLabel', { count: groups.length })}
+          </span>
+          <Button variant="ghost" onClick={onClose}>
+            {t('common.close')}
+          </Button>
+        </div>
       }
     >
       {groups.length === 0 ? (
-        <p className="text-sm text-brown-500 text-center py-8">
+        <p className="text-sm text-[#7d6b5d] text-center py-8">
           {t('workload.noEmployeesAssigned')}
         </p>
       ) : (
         <div className="space-y-4">
-          {groups.map((group) => (
-            <div
-              key={group.userId}
-              className="border border-brown-100 rounded-xl overflow-hidden"
-            >
-              {/* Employee header */}
-              <div className="bg-[#f5ecd4] px-4 py-2 flex items-center justify-between">
-                <span className="text-sm font-semibold text-brown-900">
-                  {group.userName}
-                </span>
-                <div className="flex items-center gap-2">
-                  {group.plans.length > 0 && (
-                    <Badge variant="manager">
-                      {group.plans.length} {group.plans.length === 1 ? t('workload.employeePlan') : t('workload.employeePlans')}
-                    </Badge>
-                  )}
-                  {group.actuals.length > 0 && (
-                    <Badge variant="success">
-                      {group.actuals.length} {group.actuals.length === 1 ? t('workload.employeeReport') : t('workload.employeeReports')}
-                    </Badge>
-                  )}
+          {groups.map((group) => {
+            // Total hours: sum of all actual hoursWorked for this employee
+            const totalHours = group.totalHours;
+            // First plan's project (if any)
+            const primaryPlan = group.plans.length > 0 ? group.plans[0] : null;
+
+            return (
+              <div
+                key={group.userId}
+                className="border border-[rgba(34,21,13,0.15)] rounded-xl overflow-hidden"
+              >
+                {/* Employee header */}
+                <div className="bg-[#f5ecd4] px-4 py-3">
+                  <span className="text-sm font-bold text-[#22150d]">
+                    {group.userName}
+                  </span>
                 </div>
-              </div>
 
-              {/* Plans */}
-              {group.plans.length > 0 && (
-                <div className="px-4 py-2 space-y-1.5">
-                  {group.plans.map((plan) => {
-                    const colors = PLAN_ENTRY_COLORS[isPast ? 'plan-future' : date === todayStr ? 'plan-today' : 'plan-future'];
-                    const canEdit = permissions.canEditPlan(plan) && !isPast;
-                    const canDelete = permissions.canDeletePlan(plan) && !isPast;
+                <div className="px-4 py-3 space-y-3">
+                  {/* Total hours row */}
+                  {totalHours > 0 && (
+                    <div className="flex items-center justify-between">
+                      <span className="text-sm text-[#5c4a3e]">
+                        {t('workload.totalHoursLabel')}:
+                      </span>
+                      <span className="text-sm font-semibold text-[#22150d]">
+                        {totalHours} {t('workload.hoursUnit')}
+                      </span>
+                    </div>
+                  )}
 
-                    return (
-                      <div
-                        key={plan.id}
-                        className="flex items-center justify-between p-2 rounded text-xs"
-                        style={{
-                          backgroundColor: colors.bg,
-                          borderLeft: `2px solid ${colors.border}`,
-                        }}
-                      >
-                        <div>
-                          <span className="font-medium" style={{ color: colors.text }}>
+                  {/* Plan box */}
+                  <div
+                    className="rounded-lg px-3 py-2 border"
+                    style={{
+                      backgroundColor: 'rgba(180, 145, 50, 0.08)',
+                      borderColor: 'rgba(180, 145, 50, 0.2)',
+                    }}
+                  >
+                    {primaryPlan ? (
+                      <div className="text-sm text-[#5c4a3e]">
+                        <span className="text-[#7d6b5d]">{t('workload.plannedProjectLabel')}: </span>
+                        <span className="font-medium text-[#22150d]">
+                          {primaryPlan.projectName}
+                        </span>
+                        {primaryPlan.hours != null && (
+                          <span className="ml-2 text-[#7d6b5d]">
+                            ({primaryPlan.hours} {t('workload.hoursUnit')})
+                          </span>
+                        )}
+                      </div>
+                    ) : (
+                      <span className="text-sm text-[#7d6b5d] italic">
+                        {t('workload.noPlanForDate')}
+                      </span>
+                    )}
+                    {/* Additional plans beyond the first */}
+                    {group.plans.length > 1 &&
+                      group.plans.slice(1).map((plan) => (
+                        <div key={plan.id} className="text-sm text-[#5c4a3e] mt-1">
+                          <span className="text-[#7d6b5d]">{t('workload.plannedProjectLabel')}: </span>
+                          <span className="font-medium text-[#22150d]">
                             {plan.projectName}
                           </span>
                           {plan.hours != null && (
-                            <span className="ml-2 opacity-70" style={{ color: colors.text }}>
-                              {plan.hours}{t('workload.hoursShort')}
+                            <span className="ml-2 text-[#7d6b5d]">
+                              ({plan.hours} {t('workload.hoursUnit')})
                             </span>
                           )}
                         </div>
-                        <div className="flex items-center gap-1">
-                          {canEdit && (
-                            <button
-                              type="button"
-                              className="inline-flex items-center justify-center w-6 h-6 rounded text-[#5c4a3e] hover:bg-[rgba(34,21,13,0.08)] transition-colors cursor-pointer"
-                              onClick={() => onEditPlan(plan)}
-                              aria-label={t('common.edit')}
-                            >
-                              <PencilIcon />
-                            </button>
-                          )}
-                          {canDelete && (
-                            <button
-                              type="button"
-                              className="inline-flex items-center justify-center w-6 h-6 rounded text-[#5c4a3e] hover:text-red-700 hover:bg-red-50 transition-colors cursor-pointer"
-                              onClick={() => onDeletePlan(plan)}
-                              aria-label={t('common.delete')}
-                            >
-                              <TrashIcon />
-                            </button>
-                          )}
-                        </div>
-                      </div>
-                    );
-                  })}
-                </div>
-              )}
+                      ))}
+                  </div>
 
-              {/* Actuals */}
-              {group.actuals.length > 0 && (
-                <div className="px-4 py-2 space-y-1.5 border-t border-brown-50">
-                  {group.actuals.map((actual) => {
-                    const colors = PLAN_ENTRY_COLORS.actual;
-
-                    return (
-                      <button
-                        key={actual.id}
-                        type="button"
-                        className="w-full text-left flex items-center justify-between p-2 rounded text-xs cursor-pointer hover:opacity-80 transition-opacity"
-                        style={{
-                          backgroundColor: colors.bg,
-                          borderLeft: `2px solid ${colors.border}`,
-                        }}
-                        onClick={() => onViewActual(actual)}
-                      >
-                        <span className="font-medium" style={{ color: colors.text }}>
-                          {actual.hoursWorked}{t('workload.hoursShort')} {t('workload.actual').toLowerCase()}
-                        </span>
-                        {actual.distributions.length > 0 && (
-                          <span className="text-[0.625rem] opacity-60" style={{ color: colors.text }}>
-                            {actual.distributions.length} {t('workload.project').toLowerCase()}(s)
-                          </span>
+                  {/* Distribution by projects */}
+                  {group.actuals.length > 0 && (
+                    <div>
+                      <p className="text-sm font-medium text-[#5c4a3e] mb-2">
+                        {t('workload.projectDistributionLabel')}:
+                      </p>
+                      <div className="space-y-2">
+                        {group.actuals.map((actual) =>
+                          actual.distributions.length > 0 ? (
+                            actual.distributions.map((dist) => (
+                              <div
+                                key={dist.id}
+                                className="rounded-lg border px-3 py-2"
+                                style={{
+                                  borderColor: 'rgba(34, 21, 13, 0.12)',
+                                }}
+                              >
+                                <div className="flex items-center justify-between">
+                                  <span className="text-sm font-medium text-[#22150d]">
+                                    {dist.projectName}
+                                  </span>
+                                  <span className="text-sm text-[#5c4a3e]">
+                                    {dist.hours} {t('workload.hoursUnit')}
+                                  </span>
+                                </div>
+                                {dist.description && (
+                                  <p className="text-xs text-[#7d6b5d] mt-1">
+                                    {dist.description}
+                                  </p>
+                                )}
+                              </div>
+                            ))
+                          ) : (
+                            <div
+                              key={actual.id}
+                              className="rounded-lg border px-3 py-2"
+                              style={{
+                                borderColor: 'rgba(34, 21, 13, 0.12)',
+                              }}
+                            >
+                              <div className="flex items-center justify-between">
+                                <span className="text-sm text-[#5c4a3e]">
+                                  {actual.hoursWorked} {t('workload.hoursUnit')}
+                                </span>
+                              </div>
+                              {actual.userText && (
+                                <p className="text-xs text-[#7d6b5d] mt-1">
+                                  {actual.userText}
+                                </p>
+                              )}
+                            </div>
+                          ),
                         )}
-                      </button>
-                    );
-                  })}
+                      </div>
+                    </div>
+                  )}
                 </div>
-              )}
-            </div>
-          ))}
+              </div>
+            );
+          })}
         </div>
       )}
     </Modal>

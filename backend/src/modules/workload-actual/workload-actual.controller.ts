@@ -8,10 +8,10 @@ import {
   Param,
   Query,
   UseGuards,
+  ForbiddenException,
 } from '@nestjs/common';
 import { WorkloadActualService } from './workload-actual.service';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
-import { ManagerGuard } from '../../common/guards/roles.guard';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
 import { WorkloadActualFilterDto } from './dto/workload-actual-filter.dto';
 
@@ -21,9 +21,19 @@ export class WorkloadActualController {
   constructor(private readonly workloadActualService: WorkloadActualService) {}
 
   @Get()
-  async findAll(@Query() filters: WorkloadActualFilterDto) {
+  async findAll(
+    @Query() filters: WorkloadActualFilterDto,
+    @CurrentUser() user: { sub: string; role: string },
+  ) {
+    // Non-admin/manager users can only see their own data
+    const userId =
+      user.role !== 'Admin' && user.role !== 'Manager'
+        ? user.sub
+        : filters.userId;
+
     return this.workloadActualService.findAll({
-      userId: filters.userId,
+      userId,
+      projectId: filters.projectId,
       startDate: filters.startDate ? new Date(filters.startDate) : undefined,
       endDate: filters.endDate ? new Date(filters.endDate) : undefined,
       page: filters.page,
@@ -82,12 +92,24 @@ export class WorkloadActualController {
       hoursWorked?: number;
       userText?: string;
     },
+    @CurrentUser() user: { sub: string; role: string },
   ) {
+    const record = await this.workloadActualService.findOne(id);
+    if (record.userId !== user.sub && user.role !== 'Admin' && user.role !== 'Manager') {
+      throw new ForbiddenException('You can only modify your own workload records');
+    }
     return this.workloadActualService.update(id, dto);
   }
 
   @Delete(':id')
-  async delete(@Param('id') id: string) {
+  async delete(
+    @Param('id') id: string,
+    @CurrentUser() user: { sub: string; role: string },
+  ) {
+    const record = await this.workloadActualService.findOne(id);
+    if (record.userId !== user.sub && user.role !== 'Admin' && user.role !== 'Manager') {
+      throw new ForbiddenException('You can only delete your own workload records');
+    }
     return this.workloadActualService.delete(id);
   }
 
@@ -101,12 +123,28 @@ export class WorkloadActualController {
       hours: number;
       description?: string;
     },
+    @CurrentUser() user: { sub: string; role: string },
   ) {
+    const record = await this.workloadActualService.findOne(id);
+    if (record.userId !== user.sub && user.role !== 'Admin' && user.role !== 'Manager') {
+      throw new ForbiddenException('You can only modify distributions on your own workload records');
+    }
     return this.workloadActualService.addDistribution(id, dto);
   }
 
   @Delete('distribution/:distributionId')
-  async removeDistribution(@Param('distributionId') distributionId: string) {
+  async removeDistribution(
+    @Param('distributionId') distributionId: string,
+    @CurrentUser() user: { sub: string; role: string },
+  ) {
+    const distribution = await this.workloadActualService.findDistribution(distributionId);
+    if (
+      distribution.workloadActual.userId !== user.sub &&
+      user.role !== 'Admin' &&
+      user.role !== 'Manager'
+    ) {
+      throw new ForbiddenException('You can only remove distributions from your own workload records');
+    }
     return this.workloadActualService.removeDistribution(distributionId);
   }
 }

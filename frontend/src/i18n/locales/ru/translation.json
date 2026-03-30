@@ -418,7 +418,20 @@
     "nextWeek": "Следующая неделя",
     "viewAllEmployeesAssigned": "Показать всех {{count}} назначенных сотрудников",
     "planHours": "Плановые часы",
-    "hoursShort": "ч"
+    "hoursShort": "ч",
+    "report_one": "отчёт",
+    "report_few": "отчёта",
+    "report_many": "отчётов",
+    "plan_one": "план",
+    "plan_few": "плана",
+    "plan_many": "планов",
+    "workDistributionFor": "Распределение работ на {{date}}",
+    "totalHoursLabel": "Всего часов",
+    "plannedProjectLabel": "Планируемый проект",
+    "noPlanForDate": "План на этот день отсутствует",
+    "projectDistributionLabel": "Распределение по проектам",
+    "employeeCountLabel": "Сотрудников: {{count}}",
+    "hoursUnit": "Часов"
   },
   "analytics": {
     "title": "Аналитика",
