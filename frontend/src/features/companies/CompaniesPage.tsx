@@ -48,7 +48,7 @@ function PlusIcon() {
 export default function CompaniesPage() {
   const { t } = useTranslation();
   const { user } = useAuth();
-  const isAdmin = user?.role === 'Admin';
+  const canManage = user?.role === 'Admin' || user?.role === 'Manager';
 
   // ─── Data ───────────────────────────────────────────────────────────
   const { data: companiesResponse, isLoading } = useCompanies();
@@ -226,7 +226,7 @@ export default function CompaniesPage() {
           </span>
         ),
       },
-      ...(isAdmin
+      ...(canManage
         ? [
             {
               id: 'actions',
@@ -263,7 +263,7 @@ export default function CompaniesPage() {
           ]
         : []),
     ],
-    [t, isAdmin, handleOpenEdit, handleOpenDelete],
+    [t, canManage, handleOpenEdit, handleOpenDelete],
   );
 
   // ─── Mobile card renderer ──────────────────────────────────────────
@@ -290,7 +290,7 @@ export default function CompaniesPage() {
             <p className="text-xs text-brown-600">{company.phone}</p>
           )}
 
-          {isAdmin && (
+          {canManage && (
             <div className="flex items-center gap-2 mt-3 pt-3 border-t border-brown-100">
               <button
                 type="button"
@@ -319,7 +319,7 @@ export default function CompaniesPage() {
         </div>
       );
     },
-    [t, isAdmin, handleOpenEdit, handleOpenDelete],
+    [t, canManage, handleOpenEdit, handleOpenDelete],
   );
 
   // ─── Render ─────────────────────────────────────────────────────────
@@ -331,7 +331,7 @@ export default function CompaniesPage() {
           {t('companies.title')}
         </h1>
 
-        {isAdmin && (
+        {canManage && (
           <Button
             variant="primary"
             icon={<PlusIcon />}
@@ -385,12 +385,12 @@ export default function CompaniesPage() {
         loading={createMutation.isPending || updateMutation.isPending}
       />
 
-      {/* Company Detail Modal (read-only for Manager, with actions for Admin) */}
+      {/* Company Detail Modal (with actions for Admin and Manager) */}
       <CompanyDetailModal
         isOpen={detailOpen}
         onClose={() => setDetailOpen(false)}
         company={selectedCompany}
-        isAdmin={isAdmin}
+        canManage={canManage}
         onEdit={handleOpenEdit}
         onDelete={handleOpenDelete}
       />

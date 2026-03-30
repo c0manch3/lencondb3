@@ -8,7 +8,7 @@ interface CompanyDetailModalProps {
   isOpen: boolean;
   onClose: () => void;
   company: Company | null;
-  isAdmin: boolean;
+  canManage: boolean;
   onEdit: (company: Company) => void;
   onDelete: (company: Company) => void;
 }
@@ -34,7 +34,7 @@ export default function CompanyDetailModal({
   isOpen,
   onClose,
   company,
-  isAdmin,
+  canManage,
   onEdit,
   onDelete,
 }: CompanyDetailModalProps) {
@@ -55,7 +55,7 @@ export default function CompanyDetailModal({
       size="md"
       actions={
         <>
-          {isAdmin && (
+          {canManage && (
             <>
               <Button
                 variant="danger"

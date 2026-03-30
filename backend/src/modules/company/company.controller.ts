@@ -12,7 +12,7 @@ import {
 import { CompanyService } from './company.service';
 import { CreateCompanyDto, UpdateCompanyDto } from './dto/company.dto';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
-import { AdminGuard } from '../../common/guards/roles.guard';
+import { ManagerGuard } from '../../common/guards/roles.guard';
 import { CompanyType } from '@prisma/client';
 import { CompanyFilterDto } from './dto/company-filter.dto';
 
@@ -36,19 +36,19 @@ export class CompanyController {
   }
 
   @Post('create')
-  @UseGuards(AdminGuard)
+  @UseGuards(ManagerGuard)
   async create(@Body() dto: CreateCompanyDto) {
     return this.companyService.create(dto);
   }
 
   @Patch(':uuid')
-  @UseGuards(AdminGuard)
+  @UseGuards(ManagerGuard)
   async update(@Param('uuid') uuid: string, @Body() dto: UpdateCompanyDto) {
     return this.companyService.update(uuid, dto);
   }
 
   @Delete(':uuid')
-  @UseGuards(AdminGuard)
+  @UseGuards(ManagerGuard)
   async delete(@Param('uuid') uuid: string) {
     return this.companyService.delete(uuid);
   }
