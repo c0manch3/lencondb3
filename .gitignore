@@ -4,6 +4,7 @@ frontend/dist/
 .env
 .env.*
 !.env.example
+!.env.production.example
 *.dump
 qa-screenshots/
 .playwright-mcp/

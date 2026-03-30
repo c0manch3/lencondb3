@@ -1,0 +1,78 @@
+name: Deploy to Production
+
+on:
+  workflow_dispatch:
+
+env:
+  SERVER_HOST: 168.222.253.148
+  SERVER_USER: lencondb
+  APP_DIR: /opt/lencondb3
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup SSH key
+        run: |
+          mkdir -p ~/.ssh
+          echo "${{ secrets.SSH_PRIVATE_KEY }}" > ~/.ssh/id_rsa
+          chmod 600 ~/.ssh/id_rsa
+          ssh-keyscan -H ${{ env.SERVER_HOST }} >> ~/.ssh/known_hosts
+
+      - name: Create app directory
+        run: ssh ${{ env.SERVER_USER }}@${{ env.SERVER_HOST }} "mkdir -p ${{ env.APP_DIR }}"
+
+      - name: Copy files to server
+        run: |
+          rsync -avz --delete \
+            --exclude '.git' \
+            --exclude 'node_modules' \
+            --exclude '.env' \
+            --exclude 'dist' \
+            --exclude 'coverage' \
+            --exclude '*.log' \
+            --exclude '*.dump' \
+            --exclude 'qa-*' \
+            --exclude '.planning/screenshots' \
+            --exclude '.claude' \
+            ./ ${{ env.SERVER_USER }}@${{ env.SERVER_HOST }}:${{ env.APP_DIR }}/
+
+      - name: Create .env file
+        run: |
+          ssh ${{ env.SERVER_USER }}@${{ env.SERVER_HOST }} "printf '%s\n' \
+            'POSTGRES_PASSWORD=${{ secrets.POSTGRES_PASSWORD }}' \
+            'JWT_ACCESS_SECRET=${{ secrets.JWT_ACCESS_SECRET }}' \
+            'JWT_REFRESH_SECRET=${{ secrets.JWT_REFRESH_SECRET }}' \
+            'ENCRYPTION_MASTER_KEY=${{ secrets.ENCRYPTION_MASTER_KEY }}' \
+            > ${{ env.APP_DIR }}/.env"
+
+      - name: Build containers
+        run: |
+          ssh ${{ env.SERVER_USER }}@${{ env.SERVER_HOST }} "cd ${{ env.APP_DIR }} && \
+            sudo docker compose -f docker-compose.prod.yml build --no-cache"
+
+      - name: Run database migrations
+        run: |
+          ssh ${{ env.SERVER_USER }}@${{ env.SERVER_HOST }} "cd ${{ env.APP_DIR }} && \
+            sudo docker compose -f docker-compose.prod.yml up -d postgres && \
+            sleep 8 && \
+            sudo docker compose -f docker-compose.prod.yml run --rm backend npx prisma migrate deploy"
+
+      - name: Start all services
+        run: |
+          ssh ${{ env.SERVER_USER }}@${{ env.SERVER_HOST }} "cd ${{ env.APP_DIR }} && \
+            sudo docker compose -f docker-compose.prod.yml up -d && \
+            sudo docker image prune -f"
+
+      - name: Health check
+        run: |
+          sleep 15
+          BACKEND_STATUS=$(ssh ${{ env.SERVER_USER }}@${{ env.SERVER_HOST }} "curl -s -o /dev/null -w '%{http_code}' http://localhost:3000/api/company")
+          if [ "$BACKEND_STATUS" != "401" ]; then echo "Backend check failed: HTTP $BACKEND_STATUS"; exit 1; fi
+          echo "Backend: HTTP $BACKEND_STATUS"
+          ssh ${{ env.SERVER_USER }}@${{ env.SERVER_HOST }} "curl -sf http://localhost:8080 > /dev/null"
+          echo "Frontend: OK"
+          echo "Deploy complete: https://lencondb.ru"

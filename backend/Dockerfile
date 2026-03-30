@@ -31,6 +31,9 @@ COPY prisma ./prisma/
 # Install only production dependencies
 RUN npm ci --only=production
 
+# Install Prisma CLI for migrations in production
+RUN npm install prisma
+
 # Generate Prisma client
 RUN npx prisma generate
 

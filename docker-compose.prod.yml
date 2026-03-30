@@ -1,0 +1,77 @@
+services:
+  postgres:
+    image: postgres:17-alpine
+    container_name: lencondb-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: lencondb
+      POSTGRES_USER: lencondb
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    networks:
+      - lencondb-network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U lencondb -d lencondb"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    shm_size: 256mb
+
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: lencondb-backend
+    restart: unless-stopped
+    ports:
+      - "3000:3000"
+    environment:
+      - NODE_ENV=production
+      - PORT=3000
+      - DATABASE_URL=postgresql://lencondb:${POSTGRES_PASSWORD}@postgres:5432/lencondb
+      - JWT_ACCESS_SECRET=${JWT_ACCESS_SECRET}
+      - JWT_REFRESH_SECRET=${JWT_REFRESH_SECRET}
+      - JWT_ACCESS_EXPIRATION=15m
+      - JWT_REFRESH_EXPIRATION=7d
+      - UPLOAD_MAX_SIZE=52428800
+      - UPLOAD_DEST=/app/uploads
+      - ENCRYPTION_MASTER_KEY=${ENCRYPTION_MASTER_KEY}
+      - FRONTEND_URL=https://lencondb.ru
+      - CORS_ORIGINS=https://lencondb.ru,https://www.lencondb.ru
+    volumes:
+      - uploads_data:/app/uploads
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - lencondb-network
+    healthcheck:
+      test: ["CMD-SHELL", "node -e \"require('http').get('http://localhost:3000/api/company', r => process.exit(r.statusCode === 401 ? 0 : 1)).on('error', () => process.exit(1))\""]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+      args:
+        - VITE_API_URL=https://lencondb.ru/api
+    container_name: lencondb-frontend
+    restart: unless-stopped
+    ports:
+      - "8080:80"
+    depends_on:
+      - backend
+    networks:
+      - lencondb-network
+
+networks:
+  lencondb-network:
+    driver: bridge
+
+volumes:
+  postgres_data:
+  uploads_data:
