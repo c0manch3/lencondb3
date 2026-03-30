@@ -1,8 +1,9 @@
 import { type FC, useMemo, useEffect } from 'react';
-import { useForm, Controller } from 'react-hook-form';
+import { useForm, Controller, type FieldErrors } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { useTranslation } from 'react-i18next';
+import toast from 'react-hot-toast';
 import { Modal, Button, Input, Select } from '@/shared/components';
 import type { Project } from '@/shared/types';
 import type { WorkloadPlanEntry } from '../types';
@@ -84,6 +85,10 @@ const EditPlanModal: FC<EditPlanModalProps> = ({
     });
   };
 
+  const handleValidationError = (_fieldErrors: FieldErrors<EditPlanFormValues>) => {
+    toast.error(t('common.fixFormErrors'));
+  };
+
   if (!plan) return null;
 
   return (
@@ -99,7 +104,7 @@ const EditPlanModal: FC<EditPlanModalProps> = ({
           </Button>
           <Button
             variant="primary"
-            onClick={handleSubmit(handleFormSubmit)}
+            onClick={handleSubmit(handleFormSubmit, handleValidationError)}
             loading={loading}
           >
             {t('common.save')}

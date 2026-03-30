@@ -1,8 +1,9 @@
 import { type FC, useMemo, useEffect } from 'react';
-import { useForm, Controller, useFieldArray } from 'react-hook-form';
+import { useForm, Controller, useFieldArray, type FieldErrors } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { useTranslation } from 'react-i18next';
+import toast from 'react-hot-toast';
 import { Modal, Button, Input, Select } from '@/shared/components';
 import type { User, Project, UserRole } from '@/shared/types';
 
@@ -11,7 +12,7 @@ import type { User, Project, UserRole } from '@/shared/types';
 const planRowSchema = z.object({
   projectId: z.string().min(1),
   hours: z
-    .union([z.string(), z.number()])
+    .union([z.string(), z.number(), z.null()])
     .transform((val) => {
       if (val === '' || val === null || val === undefined) return null;
       return Number(val);
@@ -38,6 +39,7 @@ interface AddPlanModalProps {
   employees: User[];
   projects: Project[];
   preselectedProjectId?: string;
+  preselectedUserId?: string;
 }
 
 // ─── Icons ──────────────────────────────────────────────────────────────────
@@ -70,6 +72,7 @@ const AddPlanModal: FC<AddPlanModalProps> = ({
   employees,
   projects,
   preselectedProjectId,
+  preselectedUserId,
 }) => {
   const { t } = useTranslation();
   const role = currentUser?.role as UserRole | undefined;
@@ -83,25 +86,27 @@ const AddPlanModal: FC<AddPlanModalProps> = ({
   } = useForm<AddPlanFormValues>({
     resolver: zodResolver(addPlanSchema),
     defaultValues: {
-      userId: isManagerOrAdmin ? '' : (currentUser?.id ?? ''),
+      userId: preselectedUserId || (isManagerOrAdmin ? '' : (currentUser?.id ?? '')),
       plans: [{ projectId: preselectedProjectId ?? '', hours: null as unknown as number }],
     },
   });
 
-  const { fields, append, remove } = useFieldArray({
+  const { fields, append, remove, replace } = useFieldArray({
     control,
     name: 'plans',
   });
 
-  // Reset form when modal opens
+  // Reset form when modal opens — replace ensures field array is fully in sync
   useEffect(() => {
     if (isOpen) {
+      const defaultPlans = [{ projectId: preselectedProjectId ?? '', hours: null as unknown as number }];
       reset({
-        userId: isManagerOrAdmin ? '' : (currentUser?.id ?? ''),
-        plans: [{ projectId: preselectedProjectId ?? '', hours: null as unknown as number }],
+        userId: preselectedUserId || (isManagerOrAdmin ? '' : (currentUser?.id ?? '')),
+        plans: defaultPlans,
       });
+      replace(defaultPlans);
     }
-  }, [isOpen, reset, isManagerOrAdmin, currentUser?.id, preselectedProjectId]);
+  }, [isOpen, reset, replace, isManagerOrAdmin, currentUser?.id, preselectedProjectId, preselectedUserId]);
 
   const employeeOptions = useMemo(
     () =>
@@ -129,6 +134,10 @@ const AddPlanModal: FC<AddPlanModalProps> = ({
     onSubmit(entries);
   };
 
+  const handleValidationError = (_fieldErrors: FieldErrors<AddPlanFormValues>) => {
+    toast.error(t('common.fixFormErrors'));
+  };
+
   return (
     <Modal
       isOpen={isOpen}
@@ -142,7 +151,7 @@ const AddPlanModal: FC<AddPlanModalProps> = ({
           </Button>
           <Button
             variant="primary"
-            onClick={handleSubmit(handleFormSubmit)}
+            onClick={handleSubmit(handleFormSubmit, handleValidationError)}
             loading={loading}
           >
             {t('common.save')}

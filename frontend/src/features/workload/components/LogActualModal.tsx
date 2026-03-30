@@ -1,8 +1,9 @@
 import { type FC, useMemo, useEffect } from 'react';
-import { useForm, Controller, useFieldArray } from 'react-hook-form';
+import { useForm, Controller, useFieldArray, type FieldErrors } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { useTranslation } from 'react-i18next';
+import toast from 'react-hot-toast';
 import { Modal, Button, Input, Select } from '@/shared/components';
 import type { Project } from '@/shared/types';
 
@@ -143,6 +144,10 @@ const LogActualModal: FC<LogActualModalProps> = ({
     });
   };
 
+  const handleValidationError = (_fieldErrors: FieldErrors<LogActualFormValues>) => {
+    toast.error(t('common.fixFormErrors'));
+  };
+
   // Map error messages to translated strings
   const hoursError = errors.hoursWorked?.message;
   const getHoursErrorText = () => {
@@ -165,7 +170,7 @@ const LogActualModal: FC<LogActualModalProps> = ({
           </Button>
           <Button
             variant="primary"
-            onClick={handleSubmit(handleFormSubmit)}
+            onClick={handleSubmit(handleFormSubmit, handleValidationError)}
             loading={loading}
           >
             {t('common.save')}

@@ -176,8 +176,12 @@ export default function WorkloadPage() {
           toast.success(t('workload.workloadSaved'));
           setAddPlanOpen(false);
         })
-        .catch(() => {
-          toast.error(t('workload.createFailed'));
+        .catch((error) => {
+          if (error?.response?.status === 409) {
+            toast.error(t('workload.planAlreadyExists'));
+          } else {
+            toast.error(t('workload.createFailed'));
+          }
         });
     },
     [addPlanDate, createPlan, t],
@@ -336,6 +340,7 @@ export default function WorkloadPage() {
         employees={employees}
         projects={projects}
         preselectedProjectId={projectFilter || undefined}
+        preselectedUserId={employeeFilter || undefined}
       />
 
       <EditPlanModal

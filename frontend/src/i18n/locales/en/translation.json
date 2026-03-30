@@ -348,6 +348,7 @@
     "onlyManagerCanEdit": "Only the manager who created the plan can edit it",
     "selectProjectRequired": "Please select a project",
     "createFailed": "Failed to create plan",
+    "planAlreadyExists": "A plan already exists for this employee, project and date",
     "updateFailed": "Failed to update plan",
     "deleteFailed": "Failed to delete plan",
     "exportTitle": "Export Workload",

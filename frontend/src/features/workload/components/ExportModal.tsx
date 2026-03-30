@@ -1,8 +1,9 @@
 import { type FC, useMemo, useEffect } from 'react';
-import { useForm, Controller } from 'react-hook-form';
+import { useForm, Controller, type FieldErrors } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { useTranslation } from 'react-i18next';
+import toast from 'react-hot-toast';
 import { Modal, Button, Select, DatePicker } from '@/shared/components';
 import type { User } from '@/shared/types';
 import type { ExportFormData, ExportFormat, ExportType } from '../types';
@@ -113,6 +114,10 @@ const ExportModal: FC<ExportModalProps> = ({
     onExport(values);
   };
 
+  const handleValidationError = (_fieldErrors: FieldErrors<ExportFormValues>) => {
+    toast.error(t('common.fixFormErrors'));
+  };
+
   return (
     <Modal
       isOpen={isOpen}
@@ -126,7 +131,7 @@ const ExportModal: FC<ExportModalProps> = ({
           </Button>
           <Button
             variant="primary"
-            onClick={handleSubmit(handleFormSubmit)}
+            onClick={handleSubmit(handleFormSubmit, handleValidationError)}
             loading={loading}
           >
             {loading ? t('workload.exporting') : t('workload.exportButton')}
