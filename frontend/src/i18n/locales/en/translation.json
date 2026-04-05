@@ -406,7 +406,11 @@
     "noPlanForDate": "No plan for this date",
     "projectDistributionLabel": "Distribution by projects",
     "employeeCountLabel": "Employees: {{count}}",
-    "hoursUnit": "Hours"
+    "hoursUnit": "Hours",
+    "editReport": "Edit",
+    "editHoursFor": "Edit report for {{date}}",
+    "hoursUpdatedSuccess": "Report updated successfully",
+    "updateActualFailed": "Failed to update report"
   },
   "analytics": {
     "title": "Analytics",

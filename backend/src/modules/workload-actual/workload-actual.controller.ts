@@ -9,11 +9,13 @@ import {
   Query,
   UseGuards,
   ForbiddenException,
+  ParseUUIDPipe,
 } from '@nestjs/common';
 import { WorkloadActualService } from './workload-actual.service';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
 import { WorkloadActualFilterDto } from './dto/workload-actual-filter.dto';
+import { UpdateWorkloadActualDto } from './dto/update-workload-actual.dto';
 
 @Controller('workload-actual')
 @UseGuards(JwtAuthGuard)
@@ -63,7 +65,7 @@ export class WorkloadActualController {
   }
 
   @Get(':id')
-  async findOne(@Param('id') id: string) {
+  async findOne(@Param('id', ParseUUIDPipe) id: string) {
     return this.workloadActualService.findOne(id);
   }
 
@@ -86,16 +88,12 @@ export class WorkloadActualController {
 
   @Patch(':id')
   async update(
-    @Param('id') id: string,
-    @Body()
-    dto: {
-      hoursWorked?: number;
-      userText?: string;
-    },
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body() dto: UpdateWorkloadActualDto,
     @CurrentUser() user: { sub: string; role: string },
   ) {
     const record = await this.workloadActualService.findOne(id);
-    if (record.userId !== user.sub && user.role !== 'Admin' && user.role !== 'Manager') {
+    if (record.userId !== user.sub && user.role !== 'Admin') {
       throw new ForbiddenException('You can only modify your own workload records');
     }
     return this.workloadActualService.update(id, dto);
@@ -103,11 +101,11 @@ export class WorkloadActualController {
 
   @Delete(':id')
   async delete(
-    @Param('id') id: string,
+    @Param('id', ParseUUIDPipe) id: string,
     @CurrentUser() user: { sub: string; role: string },
   ) {
     const record = await this.workloadActualService.findOne(id);
-    if (record.userId !== user.sub && user.role !== 'Admin' && user.role !== 'Manager') {
+    if (record.userId !== user.sub && user.role !== 'Admin') {
       throw new ForbiddenException('You can only delete your own workload records');
     }
     return this.workloadActualService.delete(id);
@@ -116,7 +114,7 @@ export class WorkloadActualController {
   // Distribution endpoints
   @Post(':id/distribution')
   async addDistribution(
-    @Param('id') id: string,
+    @Param('id', ParseUUIDPipe) id: string,
     @Body()
     dto: {
       projectId: string;
@@ -134,7 +132,7 @@ export class WorkloadActualController {
 
   @Delete('distribution/:distributionId')
   async removeDistribution(
-    @Param('distributionId') distributionId: string,
+    @Param('distributionId', ParseUUIDPipe) distributionId: string,
     @CurrentUser() user: { sub: string; role: string },
   ) {
     const distribution = await this.workloadActualService.findDistribution(distributionId);

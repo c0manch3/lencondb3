@@ -3,13 +3,23 @@ import { useTranslation } from 'react-i18next';
 import { Modal, Button, Badge } from '@/shared/components';
 import type { WorkloadActualEntry } from '../types';
 
+function PencilIcon() {
+  return (
+    <svg className="w-4 h-4" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
+      <path d="M2.695 14.763l-1.262 3.154a.5.5 0 00.65.65l3.155-1.262a4 4 0 001.343-.885L17.5 5.5a2.121 2.121 0 00-3-3L3.58 13.42a4 4 0 00-.885 1.343z" />
+    </svg>
+  );
+}
+
 interface ViewActualModalProps {
   isOpen: boolean;
   onClose: () => void;
   actual: WorkloadActualEntry | null;
+  canEdit?: boolean;
+  onEdit?: () => void;
 }
 
-const ViewActualModal: FC<ViewActualModalProps> = ({ isOpen, onClose, actual }) => {
+const ViewActualModal: FC<ViewActualModalProps> = ({ isOpen, onClose, actual, canEdit, onEdit }) => {
   const { t } = useTranslation();
 
   if (!actual) return null;
@@ -21,9 +31,19 @@ const ViewActualModal: FC<ViewActualModalProps> = ({ isOpen, onClose, actual }) 
       title={t('workload.workReport')}
       size="md"
       actions={
-        <Button variant="ghost" onClick={onClose}>
-          {t('common.close')}
-        </Button>
+        <div className="flex items-center gap-2">
+          {canEdit && onEdit && (
+            <Button variant="primary" onClick={onEdit}>
+              <span className="inline-flex items-center gap-1.5">
+                <PencilIcon />
+                {t('workload.editReport')}
+              </span>
+            </Button>
+          )}
+          <Button variant="ghost" onClick={onClose}>
+            {t('common.close')}
+          </Button>
+        </div>
       }
     >
       <div className="space-y-4">

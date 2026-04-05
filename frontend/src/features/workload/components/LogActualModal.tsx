@@ -44,6 +44,15 @@ function TrashIcon() {
 
 // ─── Props ──────────────────────────────────────────────────────────────────
 
+export interface EditingActual {
+  id: string;
+  distributions: Array<{
+    projectId: string;
+    hours: number;
+    description: string;
+  }>;
+}
+
 interface LogActualModalProps {
   isOpen: boolean;
   onClose: () => void;
@@ -56,6 +65,7 @@ interface LogActualModalProps {
   loading: boolean;
   date: string;
   projects: Project[];
+  editingActual?: EditingActual | null;
 }
 
 // ─── Component ──────────────────────────────────────────────────────────────
@@ -67,6 +77,7 @@ const LogActualModal: FC<LogActualModalProps> = ({
   loading,
   date,
   projects,
+  editingActual,
 }) => {
   const { t } = useTranslation();
 
@@ -90,11 +101,21 @@ const LogActualModal: FC<LogActualModalProps> = ({
 
   useEffect(() => {
     if (isOpen) {
-      reset({
-        distributions: [{ projectId: '', hours: 0, description: '' }],
-      });
+      if (editingActual && editingActual.distributions.length > 0) {
+        reset({
+          distributions: editingActual.distributions.map((d) => ({
+            projectId: d.projectId,
+            hours: d.hours,
+            description: d.description,
+          })),
+        });
+      } else {
+        reset({
+          distributions: [{ projectId: '', hours: 0, description: '' }],
+        });
+      }
     }
-  }, [isOpen, reset]);
+  }, [isOpen, reset, editingActual]);
 
   const projectOptions = useMemo(
     () =>
@@ -133,7 +154,7 @@ const LogActualModal: FC<LogActualModalProps> = ({
     <Modal
       isOpen={isOpen}
       onClose={onClose}
-      title={t('workload.logHoursFor', { date })}
+      title={editingActual ? t('workload.editHoursFor', { date }) : t('workload.logHoursFor', { date })}
       size="lg"
       actions={
         <>

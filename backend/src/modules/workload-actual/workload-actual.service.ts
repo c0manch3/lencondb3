@@ -1,4 +1,4 @@
-import { Injectable, NotFoundException, ConflictException } from '@nestjs/common';
+import { Injectable, NotFoundException, ConflictException, BadRequestException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { PaginatedResponse } from '../../common/dto/paginated-response';
 
@@ -178,8 +178,21 @@ export class WorkloadActualService {
     data: {
       hoursWorked?: number;
       userText?: string;
+      distributions?: { projectId: string; hours: number; description?: string }[];
     },
   ) {
+    // Validate total hours <= 24
+    if (data.distributions) {
+      const totalHours = data.distributions.reduce((sum, d) => sum + d.hours, 0);
+      if (totalHours > 24) {
+        throw new BadRequestException('Total distribution hours cannot exceed 24');
+      }
+    }
+
+    if (data.hoursWorked !== undefined && data.hoursWorked > 24) {
+      throw new BadRequestException('Hours worked cannot exceed 24');
+    }
+
     const workload = await this.prisma.workloadActual.findUnique({
       where: { id },
     });
@@ -188,6 +201,45 @@ export class WorkloadActualService {
       throw new NotFoundException('Workload actual not found');
     }
 
+    // When distributions are provided, replace them atomically in a transaction
+    if (data.distributions !== undefined) {
+      return this.prisma.$transaction(async (tx) => {
+        // Delete all existing distributions for this actual
+        await tx.projectWorkloadDistribution.deleteMany({
+          where: { workloadActualId: id },
+        });
+
+        // Update the actual record and create new distributions
+        return tx.workloadActual.update({
+          where: { id },
+          data: {
+            hoursWorked: data.hoursWorked,
+            userText: data.userText,
+            distributions: {
+              create: data.distributions!.map((d) => ({
+                project: { connect: { id: d.projectId } },
+                hours: d.hours,
+                description: d.description || '',
+              })),
+            },
+          },
+          include: {
+            user: {
+              select: { id: true, firstName: true, lastName: true },
+            },
+            distributions: {
+              include: {
+                project: {
+                  select: { id: true, name: true },
+                },
+              },
+            },
+          },
+        });
+      });
+    }
+
+    // Simple update without distributions
     return this.prisma.workloadActual.update({
       where: { id },
       data: {

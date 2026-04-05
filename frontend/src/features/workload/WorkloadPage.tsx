@@ -12,6 +12,7 @@ import {
   useUpdatePlan,
   useDeletePlan,
   useLogActual,
+  useUpdateActual,
 } from './hooks/useWorkloadData';
 import { useWorkloadExport } from './hooks/useWorkloadExport';
 import {
@@ -27,7 +28,7 @@ import WeekView from './components/WeekView';
 import DayView from './components/DayView';
 import AddPlanModal from './components/AddPlanModal';
 import EditPlanModal from './components/EditPlanModal';
-import LogActualModal from './components/LogActualModal';
+import LogActualModal, { type EditingActual } from './components/LogActualModal';
 import ViewActualModal from './components/ViewActualModal';
 import DateEmployeesModal from './components/DateEmployeesModal';
 import ExportModal from './components/ExportModal';
@@ -104,6 +105,7 @@ export default function WorkloadPage() {
   const updatePlan = useUpdatePlan();
   const deletePlan = useDeletePlan();
   const logActual = useLogActual();
+  const updateActual = useUpdateActual();
   const { isExporting, exportWorkload } = useWorkloadExport();
 
   // ─── Modal states ───────────────────────────────────────────────
@@ -115,6 +117,7 @@ export default function WorkloadPage() {
 
   const [logActualOpen, setLogActualOpen] = useState(false);
   const [logActualDate, setLogActualDate] = useState('');
+  const [editActualData, setEditActualData] = useState<EditingActual | null>(null);
 
   const [viewActualOpen, setViewActualOpen] = useState(false);
   const [viewingActual, setViewingActual] = useState<WorkloadActualEntry | null>(null);
@@ -149,9 +152,26 @@ export default function WorkloadPage() {
   }, []);
 
   const handleLogActual = useCallback((date: string) => {
+    setEditActualData(null);
     setLogActualDate(date);
     setLogActualOpen(true);
   }, []);
+
+  const handleEditActual = useCallback(() => {
+    if (!viewingActual) return;
+    // Close the view modal and open the log modal in edit mode
+    setViewActualOpen(false);
+    setEditActualData({
+      id: viewingActual.id,
+      distributions: viewingActual.distributions.map((d) => ({
+        projectId: d.projectId,
+        hours: d.hours,
+        description: d.description ?? '',
+      })),
+    });
+    setLogActualDate(viewingActual.date);
+    setLogActualOpen(true);
+  }, [viewingActual]);
 
   const handleViewDateEmployees = useCallback((date: string) => {
     setDateEmployeesDate(date);
@@ -226,17 +246,40 @@ export default function WorkloadPage() {
       userText?: string;
       distributions?: Array<{ projectId: string; hours: number; description?: string }>;
     }) => {
-      logActual.mutate(data, {
-        onSuccess: () => {
-          toast.success(t('workload.hoursLoggedSuccess'));
-          setLogActualOpen(false);
-        },
-        onError: () => {
-          toast.error(t('workload.logHoursFailed'));
-        },
-      });
+      if (editActualData) {
+        // Edit mode: PATCH existing actual
+        updateActual.mutate(
+          {
+            id: editActualData.id,
+            hoursWorked: data.hoursWorked,
+            userText: data.userText,
+            distributions: data.distributions,
+          },
+          {
+            onSuccess: () => {
+              toast.success(t('workload.hoursUpdatedSuccess'));
+              setLogActualOpen(false);
+              setEditActualData(null);
+            },
+            onError: () => {
+              toast.error(t('workload.updateActualFailed'));
+            },
+          },
+        );
+      } else {
+        // Create mode: POST new actual
+        logActual.mutate(data, {
+          onSuccess: () => {
+            toast.success(t('workload.hoursLoggedSuccess'));
+            setLogActualOpen(false);
+          },
+          onError: () => {
+            toast.error(t('workload.logHoursFailed'));
+          },
+        });
+      }
     },
-    [logActual, t],
+    [logActual, updateActual, editActualData, t],
   );
 
   const handleExport = useCallback(
@@ -354,17 +397,23 @@ export default function WorkloadPage() {
 
       <LogActualModal
         isOpen={logActualOpen}
-        onClose={() => setLogActualOpen(false)}
+        onClose={() => {
+          setLogActualOpen(false);
+          setEditActualData(null);
+        }}
         onSubmit={handleLogActualSubmit}
-        loading={logActual.isPending}
+        loading={logActual.isPending || updateActual.isPending}
         date={logActualDate}
         projects={projects}
+        editingActual={editActualData}
       />
 
       <ViewActualModal
         isOpen={viewActualOpen}
         onClose={() => setViewActualOpen(false)}
         actual={viewingActual}
+        canEdit={viewingActual ? permissions.canEditActual(viewingActual) : false}
+        onEdit={handleEditActual}
       />
 
       <DateEmployeesModal

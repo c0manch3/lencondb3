@@ -433,7 +433,11 @@
     "noPlanForDate": "План на этот день отсутствует",
     "projectDistributionLabel": "Распределение по проектам",
     "employeeCountLabel": "Сотрудников: {{count}}",
-    "hoursUnit": "Часов"
+    "hoursUnit": "Часов",
+    "editReport": "Редактировать",
+    "editHoursFor": "Редактировать отчёт за {{date}}",
+    "hoursUpdatedSuccess": "Отчёт успешно обновлён",
+    "updateActualFailed": "Не удалось обновить отчёт"
   },
   "analytics": {
     "title": "Аналитика",
