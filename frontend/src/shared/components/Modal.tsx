@@ -73,6 +73,7 @@ const Modal: FC<ModalProps> = ({
   return (
     <div
       ref={overlayRef}
+      data-lenis-prevent
       className="fixed inset-0 z-50 flex items-center justify-center bg-brown-900/50 backdrop-blur-sm p-4"
       onClick={handleOverlayClick}
       role="dialog"
