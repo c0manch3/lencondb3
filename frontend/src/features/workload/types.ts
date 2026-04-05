@@ -106,6 +106,7 @@ export interface WorkloadPermissions {
   canEditPlan: (plan: WorkloadPlanEntry) => boolean;
   canDeletePlan: (plan: WorkloadPlanEntry) => boolean;
   canLogActual: boolean;
+  canEditActual: (actual: WorkloadActualEntry) => boolean;
   canExport: boolean;
   canFilterByEmployee: boolean;
   canViewAllEmployees: boolean;
@@ -132,6 +133,11 @@ export function getWorkloadPermissions(
       return false;
     },
     canLogActual: role === 'Manager' || role === 'Employee',
+    canEditActual: (actual: WorkloadActualEntry) => {
+      if (role === 'Admin') return true;
+      // Only the owner of the report can edit it
+      return actual.userId === userId;
+    },
     canExport: role === 'Admin' || role === 'Manager',
     canFilterByEmployee: role === 'Admin' || role === 'Manager',
     canViewAllEmployees: role === 'Admin' || role === 'Manager',

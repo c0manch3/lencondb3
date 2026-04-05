@@ -248,6 +248,34 @@ export function useLogActual() {
   });
 }
 
+interface UpdateActualPayload {
+  id: string;
+  hoursWorked: number;
+  userText?: string;
+  distributions?: Array<{
+    projectId: string;
+    hours: number;
+    description?: string;
+  }>;
+}
+
+export function useUpdateActual() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async ({ id, ...payload }: UpdateActualPayload) => {
+      const { data } = await api.patch<WorkloadActual>(
+        `/workload-actual/${id}`,
+        payload,
+      );
+      return data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: WORKLOAD_KEYS.all });
+    },
+  });
+}
+
 // ─── Export data fetchers ───────────────────────────────────────────────────
 
 export async function fetchPlansForExport(params: {
