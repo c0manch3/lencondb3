@@ -92,7 +92,7 @@ const LogActualModal: FC<LogActualModalProps> = ({
     defaultValues: {
       hoursWorked: 0,
       userText: '',
-      distributions: [],
+      distributions: [{ projectId: '', hours: 0, description: '' }],
     },
   });
 
@@ -106,7 +106,7 @@ const LogActualModal: FC<LogActualModalProps> = ({
       reset({
         hoursWorked: 0,
         userText: '',
-        distributions: [],
+        distributions: [{ projectId: '', hours: 0, description: '' }],
       });
     }
   }, [isOpen, reset]);
