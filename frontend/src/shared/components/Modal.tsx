@@ -83,7 +83,7 @@ const Modal: FC<ModalProps> = ({
         className={`
           w-full ${sizeClasses[size]}
           bg-cream-50 rounded-xl border border-brown-200
-          max-h-[90vh] overflow-y-auto
+          max-h-[90vh]
           flex flex-col
         `}
       >
@@ -120,7 +120,7 @@ const Modal: FC<ModalProps> = ({
         </div>
 
         {/* Body */}
-        <div className="px-6 py-4 flex-1">
+        <div className="px-6 py-4 flex-1 min-h-0 overflow-y-auto">
           {children}
         </div>
 
