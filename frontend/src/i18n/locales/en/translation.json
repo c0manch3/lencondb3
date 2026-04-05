@@ -378,6 +378,7 @@
     "hoursPositiveRequired": "Hours must be a positive number",
     "hoursExceed24": "Hours cannot exceed 24",
     "distributionExceedsTotal": "Distribution hours exceed total hours worked",
+    "totalExceeds24": "Total distribution hours cannot exceed 24",
     "hoursLoggedSuccess": "Hours logged successfully",
     "logHoursFailed": "Failed to log hours",
     "distributeToProjects": "Distribute to projects",

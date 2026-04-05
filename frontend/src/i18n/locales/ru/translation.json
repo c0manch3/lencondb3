@@ -405,6 +405,7 @@
     "hoursPositiveRequired": "Часы должны быть положительным числом",
     "hoursExceed24": "Часы не могут превышать 24",
     "distributionExceedsTotal": "Часы распределения превышают общее количество",
+    "totalExceeds24": "Общее количество часов распределения не может превышать 24",
     "hoursLoggedSuccess": "Часы успешно записаны",
     "logHoursFailed": "Не удалось записать часы",
     "distributeToProjects": "Распределить по проектам",

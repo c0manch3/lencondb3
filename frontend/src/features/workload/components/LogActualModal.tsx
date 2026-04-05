@@ -1,4 +1,4 @@
-import { type FC, useMemo, useEffect } from 'react';
+import { type FC, useEffect, useMemo } from 'react';
 import { useForm, Controller, useFieldArray, type FieldErrors } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
@@ -11,27 +11,16 @@ import type { Project } from '@/shared/types';
 
 const distributionSchema = z.object({
   projectId: z.string().min(1, 'required'),
-  hours: z.coerce.number().min(0.5, 'min'),
+  hours: z.coerce.number().min(0.5, 'min').max(24, 'max'),
   description: z.string().optional().default(''),
 });
 
-const logActualSchema = z
-  .object({
-    hoursWorked: z.coerce.number().positive('positive').max(24, 'max24'),
-    userText: z.string().optional().default(''),
-    distributions: z.array(distributionSchema),
-  })
-  .refine(
-    (data) => {
-      if (data.distributions.length === 0) return true;
-      const sum = data.distributions.reduce((acc, d) => acc + d.hours, 0);
-      return sum <= data.hoursWorked;
-    },
-    {
-      message: 'distributionExceedsTotal',
-      path: ['distributions'],
-    },
-  );
+const logActualSchema = z.object({
+  distributions: z.array(distributionSchema).min(1, 'atLeastOne'),
+}).refine(
+  (data) => data.distributions.reduce((sum, d) => sum + (d.hours || 0), 0) <= 24,
+  { message: 'totalExceeds24', path: ['distributions'] },
+);
 
 type LogActualFormValues = z.infer<typeof logActualSchema>;
 
@@ -84,14 +73,12 @@ const LogActualModal: FC<LogActualModalProps> = ({
   const {
     control,
     handleSubmit,
-    watch,
     reset,
+    watch,
     formState: { errors },
   } = useForm<LogActualFormValues>({
     resolver: zodResolver(logActualSchema),
     defaultValues: {
-      hoursWorked: 0,
-      userText: '',
       distributions: [{ projectId: '', hours: 0, description: '' }],
     },
   });
@@ -104,8 +91,6 @@ const LogActualModal: FC<LogActualModalProps> = ({
   useEffect(() => {
     if (isOpen) {
       reset({
-        hoursWorked: 0,
-        userText: '',
         distributions: [{ projectId: '', hours: 0, description: '' }],
       });
     }
@@ -119,42 +104,29 @@ const LogActualModal: FC<LogActualModalProps> = ({
     [projects],
   );
 
-  const hoursWorked = watch('hoursWorked');
-  const distributions = watch('distributions');
-
-  const distributedHours = distributions.reduce(
-    (sum, d) => sum + (Number(d.hours) || 0),
-    0,
-  );
-  const remainingHours = Math.max(0, (Number(hoursWorked) || 0) - distributedHours);
+  const watchedDistributions = watch('distributions');
 
   const handleFormSubmit = (values: LogActualFormValues) => {
+    const totalHours = values.distributions.reduce((sum, d) => sum + (d.hours || 0), 0);
     onSubmit({
       date,
-      hoursWorked: values.hoursWorked,
-      userText: values.userText || undefined,
-      distributions:
-        values.distributions.length > 0
-          ? values.distributions.map((d) => ({
-              projectId: d.projectId,
-              hours: d.hours,
-              description: d.description || undefined,
-            }))
-          : undefined,
+      hoursWorked: totalHours,
+      userText: '',
+      distributions: values.distributions.map((d) => ({
+        projectId: d.projectId,
+        hours: d.hours,
+        description: d.description || undefined,
+      })),
     });
   };
 
-  const handleValidationError = (_fieldErrors: FieldErrors<LogActualFormValues>) => {
-    toast.error(t('common.fixFormErrors'));
-  };
-
-  // Map error messages to translated strings
-  const hoursError = errors.hoursWorked?.message;
-  const getHoursErrorText = () => {
-    if (!hoursError) return undefined;
-    if (hoursError === 'positive') return t('workload.hoursPositiveRequired');
-    if (hoursError === 'max24') return t('workload.hoursExceed24');
-    return t('workload.enterHoursRequired');
+  const handleValidationError = (fieldErrors: FieldErrors<LogActualFormValues>) => {
+    const rootDistError = fieldErrors.distributions?.root?.message ?? fieldErrors.distributions?.message;
+    if (rootDistError === 'totalExceeds24') {
+      toast.error(t('workload.totalExceeds24'));
+    } else {
+      toast.error(t('common.fixFormErrors'));
+    }
   };
 
   return (
@@ -182,44 +154,6 @@ const LogActualModal: FC<LogActualModalProps> = ({
         {/* Date (readonly) */}
         <Input label={t('workload.date')} value={date} readOnly disabled />
 
-        {/* Total hours */}
-        <Controller
-          name="hoursWorked"
-          control={control}
-          render={({ field }) => (
-            <Input
-              label={t('workload.totalHours')}
-              type="number"
-              min={0}
-              max={24}
-              step={0.5}
-              placeholder="8"
-              value={field.value || ''}
-              onChange={(e) => field.onChange(e.target.value)}
-              error={getHoursErrorText()}
-            />
-          )}
-        />
-
-        {/* Notes */}
-        <Controller
-          name="userText"
-          control={control}
-          render={({ field }) => (
-            <div className="flex flex-col gap-1">
-              <label className="text-sm font-medium text-brown-800">
-                {t('workload.notes')}
-              </label>
-              <textarea
-                className="bg-cream-50 border border-brown-200 rounded px-3 py-2 text-brown-900 text-sm transition-colors duration-200 focus:border-brown-500 focus:ring-1 focus:ring-brown-500 focus:outline-none min-h-[80px] resize-y"
-                placeholder={t('workload.notesPlaceholder')}
-                value={field.value}
-                onChange={field.onChange}
-              />
-            </div>
-          )}
-        />
-
         {/* Distributions section */}
         <div className="space-y-3">
           <div className="flex items-center justify-between">
@@ -236,20 +170,6 @@ const LogActualModal: FC<LogActualModalProps> = ({
             </button>
           </div>
 
-          {/* Remaining hours indicator */}
-          {fields.length > 0 && (
-            <div className="text-xs text-[#5c4a3e]">
-              {t('workload.remainingHours')}: {remainingHours.toFixed(1)}{t('workload.hoursShort')}
-            </div>
-          )}
-
-          {/* Distribution error */}
-          {errors.distributions?.root?.message === 'distributionExceedsTotal' && (
-            <p className="text-xs text-red-600" role="alert">
-              {t('workload.distributionExceedsTotal')}
-            </p>
-          )}
-
           {fields.map((field, idx) => (
             <div
               key={field.id}
@@ -262,7 +182,13 @@ const LogActualModal: FC<LogActualModalProps> = ({
                     control={control}
                     render={({ field: f }) => (
                       <Select
-                        options={projectOptions}
+                        options={projectOptions.filter(
+                          (p) =>
+                            p.value === watchedDistributions?.[idx]?.projectId ||
+                            !watchedDistributions?.some(
+                              (d, i) => i !== idx && d.projectId === p.value,
+                            ),
+                        )}
                         placeholder={t('workload.selectProject')}
                         value={f.value}
                         onChange={f.onChange}
@@ -311,7 +237,8 @@ const LogActualModal: FC<LogActualModalProps> = ({
 
                 <button
                   type="button"
-                  className="mt-1 inline-flex items-center justify-center w-7 h-7 rounded text-[#5c4a3e] hover:text-red-700 hover:bg-red-50 transition-colors cursor-pointer"
+                  disabled={fields.length <= 1}
+                  className={`mt-1 inline-flex items-center justify-center w-7 h-7 rounded text-[#5c4a3e] transition-colors ${fields.length <= 1 ? 'opacity-30 cursor-not-allowed' : 'cursor-pointer hover:text-red-700 hover:bg-red-50'}`}
                   onClick={() => remove(idx)}
                   aria-label={t('common.remove')}
                 >
