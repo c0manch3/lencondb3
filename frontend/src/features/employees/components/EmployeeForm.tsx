@@ -189,7 +189,11 @@ export default function EmployeeForm({ isOpen, onClose, employee }: EmployeeForm
 
         // If email was not sent, copy invite URL to clipboard
         if (!result.emailSent && result.inviteUrl) {
-          await navigator.clipboard.writeText(result.inviteUrl);
+          try {
+            await navigator.clipboard.writeText(result.inviteUrl);
+          } catch {
+            console.warn('Clipboard unavailable, invite URL:', result.inviteUrl);
+          }
           toast.success(t('employees.inviteLinkCopied'));
         } else {
           toast.success(t('employees.employeeCreated'));
@@ -208,7 +212,11 @@ export default function EmployeeForm({ isOpen, onClose, employee }: EmployeeForm
     try {
       const result = await resendInviteMutation.mutateAsync(employee.id);
       if (!result.emailSent && result.inviteUrl) {
-        await navigator.clipboard.writeText(result.inviteUrl);
+        try {
+          await navigator.clipboard.writeText(result.inviteUrl);
+        } catch {
+          console.warn('Clipboard unavailable, invite URL:', result.inviteUrl);
+        }
         toast.success(t('employees.inviteLinkCopied'));
       } else {
         toast.success(t('employees.inviteResent'));
@@ -221,8 +229,17 @@ export default function EmployeeForm({ isOpen, onClose, employee }: EmployeeForm
   async function handleResetPassword() {
     if (!employee) return;
     try {
-      await initiateResetMutation.mutateAsync(employee.id);
-      toast.success(t('employees.resetSent'));
+      const result = await initiateResetMutation.mutateAsync(employee.id);
+      if (!result.emailSent && result.resetUrl) {
+        try {
+          await navigator.clipboard.writeText(result.resetUrl);
+        } catch {
+          console.warn('Clipboard unavailable, reset URL:', result.resetUrl);
+        }
+        toast.success(t('employees.resetLinkCopied'));
+      } else {
+        toast.success(t('employees.resetSent'));
+      }
     } catch {
       toast.error(t('employees.resetError'));
     }
@@ -256,6 +273,7 @@ export default function EmployeeForm({ isOpen, onClose, employee }: EmployeeForm
                   type="button"
                   variant="secondary"
                   size="sm"
+                  disabled={resendInviteMutation.isPending || initiateResetMutation.isPending}
                   loading={resendInviteMutation.isPending}
                   onClick={handleResendInvite}
                 >
@@ -266,6 +284,7 @@ export default function EmployeeForm({ isOpen, onClose, employee }: EmployeeForm
                   type="button"
                   variant="secondary"
                   size="sm"
+                  disabled={resendInviteMutation.isPending || initiateResetMutation.isPending}
                   loading={initiateResetMutation.isPending}
                   onClick={handleResetPassword}
                 >

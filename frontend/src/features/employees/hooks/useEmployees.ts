@@ -113,7 +113,7 @@ export function useResendInvite() {
 export function useInitiateReset() {
   return useMutation({
     mutationFn: async (userId: string) => {
-      const { data } = await api.post<{ message: string }>(
+      const { data } = await api.post<{ emailSent: boolean; resetUrl?: string }>(
         `/invite/initiate-reset/${userId}`,
       );
       return data;

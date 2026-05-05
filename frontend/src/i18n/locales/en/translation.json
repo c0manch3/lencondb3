@@ -222,6 +222,7 @@
     "inviteResent": "Invite resent successfully",
     "resendError": "Failed to resend invite",
     "resetSent": "Password reset link sent",
+    "resetLinkCopied": "Reset link copied to clipboard",
     "resetError": "Failed to send reset link",
     "statusPending": "Pending",
     "statusActive": "Active",

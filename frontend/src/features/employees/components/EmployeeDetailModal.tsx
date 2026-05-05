@@ -71,7 +71,11 @@ const EmployeeDetailModal: FC<EmployeeDetailModalProps> = ({
     try {
       const result = await resendInviteMutation.mutateAsync(employee.id);
       if (!result.emailSent && result.inviteUrl) {
-        await navigator.clipboard.writeText(result.inviteUrl);
+        try {
+          await navigator.clipboard.writeText(result.inviteUrl);
+        } catch {
+          console.warn('Clipboard unavailable, invite URL:', result.inviteUrl);
+        }
         toast.success(t('employees.inviteLinkCopied'));
       } else {
         toast.success(t('employees.inviteResent'));
@@ -81,24 +85,20 @@ const EmployeeDetailModal: FC<EmployeeDetailModalProps> = ({
     }
   }
 
-  async function handleCopyInviteLink() {
-    if (!employee) return;
-    try {
-      const result = await resendInviteMutation.mutateAsync(employee.id);
-      if (result.inviteUrl) {
-        await navigator.clipboard.writeText(result.inviteUrl);
-        toast.success(t('employees.inviteLinkCopied'));
-      }
-    } catch {
-      toast.error(t('employees.resendError'));
-    }
-  }
-
   async function handleResetPassword() {
     if (!employee) return;
     try {
-      await initiateResetMutation.mutateAsync(employee.id);
-      toast.success(t('employees.resetSent'));
+      const result = await initiateResetMutation.mutateAsync(employee.id);
+      if (!result.emailSent && result.resetUrl) {
+        try {
+          await navigator.clipboard.writeText(result.resetUrl);
+        } catch {
+          console.warn('Clipboard unavailable, reset URL:', result.resetUrl);
+        }
+        toast.success(t('employees.resetLinkCopied'));
+      } else {
+        toast.success(t('employees.resetSent'));
+      }
     } catch {
       toast.error(t('employees.resetError'));
     }
@@ -116,28 +116,20 @@ const EmployeeDetailModal: FC<EmployeeDetailModalProps> = ({
             {/* Invite/reset actions */}
             <div className="flex gap-2 mr-auto">
               {isPending ? (
-                <>
-                  <Button
-                    variant="secondary"
-                    size="sm"
-                    loading={resendInviteMutation.isPending}
-                    onClick={handleResendInvite}
-                  >
-                    {t('employees.resendInvite')}
-                  </Button>
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    loading={resendInviteMutation.isPending}
-                    onClick={handleCopyInviteLink}
-                  >
-                    {t('employees.copyInviteLink')}
-                  </Button>
-                </>
+                <Button
+                  variant="secondary"
+                  size="sm"
+                  disabled={resendInviteMutation.isPending || initiateResetMutation.isPending}
+                  loading={resendInviteMutation.isPending}
+                  onClick={handleResendInvite}
+                >
+                  {t('employees.resendInvite')}
+                </Button>
               ) : (
                 <Button
                   variant="secondary"
                   size="sm"
+                  disabled={resendInviteMutation.isPending || initiateResetMutation.isPending}
                   loading={initiateResetMutation.isPending}
                   onClick={handleResetPassword}
                 >
